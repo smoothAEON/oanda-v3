@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gold-signal-bot-v3"
+version = "0.1.0"
+description = "Bootstrap baseline for the Gold Signal Bot V3 rewrite."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Gold Signal Bot V3" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "config",
+  "config.*",
+  "core",
+  "core.*",
+  "providers",
+  "providers.*",
+  "smc",
+  "smc.*",
+  "indicators",
+  "indicators.*",
+  "filters",
+  "filters.*",
+  "data",
+  "data.*",
+  "journal",
+  "journal.*",
+  "tracking",
+  "tracking.*",
+  "alerts",
+  "alerts.*",
+  "notifications",
+  "notifications.*",
+  "background",
+  "background.*",
+  "charting",
+  "charting.*",
+  "orchestration",
+  "orchestration.*",
+  "bot",
+  "bot.*",
+  "tests",
+  "tests.*",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+python_files = ["test_*.py"]
+testpaths = ["tests/unit", "tests/integration"]
+asyncio_mode = "auto"
+markers = [
+  "live: tests that hit the real OANDA API (run with: pytest tests/live/ -m live)",
+  "timeout: per-test timeout in seconds (requires pytest-timeout for enforcement)",
+]

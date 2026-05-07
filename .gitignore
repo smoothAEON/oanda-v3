@@ -1,0 +1,161 @@
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# C extensions / compiled modules
+*.so
+*.dll
+*.dylib
+
+# ===========================
+# Virtual Environments
+# ===========================
+.venv*/
+venv/
+env/
+ENV/
+.python-version
+
+# ===========================
+# Distribution / Packaging
+# ===========================
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+sdist/
+wheels/
+pip-wheel-metadata/
+MANIFEST
+
+# Editable installs
+*.egg-link
+
+# ===========================
+# Testing & Coverage
+# ===========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+*.lcov
+.nox/
+.tox/
+
+# ===========================
+# Type Checking & Linting
+# ===========================
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.pyre/
+.pylint.d/
+dmypy.json
+
+# ===========================
+# IDE / Editor
+# ===========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.spyderproject
+.spyproject
+
+# ===========================
+# OS-Specific
+# ===========================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*.directory
+
+# ===========================
+# Secrets & Credentials
+# ===========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+
+# ===========================
+# Logs
+# ===========================
+logs/
+*.log
+
+# ===========================
+# Runtime Data & Persistence
+# ===========================
+data/**/*.csv
+data/**/*.json
+data/**/*.log
+data/bot.json
+data/cache/
+data/manual_checks/
+
+# ===========================
+# TA-Lib Wheels (local builds)
+# ===========================
+TA_Lib-*.whl
+
+# ===========================
+# Jupyter Notebooks
+# ===========================
+.ipynb_checkpoints/
+*.ipynb
+
+# ===========================
+# Documentation Build
+# ===========================
+docs/_build/
+site/
+
+# ===========================
+# Temporary / Scratch
+# ===========================
+tmp_*/
+*.tmp
+*.bak
+*.orig
+scratch/
+sandbox/
+
+# ===========================
+# Docker (future-proofing)
+# ===========================
+docker-compose.override.yml
+
+# ===========================
+# Claude Code local settings
+# ===========================
+.claude/settings.local.json
+CLAUDE.MD.worktrees/

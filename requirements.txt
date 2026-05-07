@@ -1,0 +1,50 @@
+# Core runtime
+python-dotenv>=1.0.0
+pydantic>=2.0
+pydantic-settings>=2.0
+oandapyV20>=0.7.2
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Analytics
+TA-Lib>=0.6.8
+pandas-ta==0.4.71b0
+# Install smartmoneyconcepts separately with:
+#   pip install smartmoneyconcepts==0.0.26 --no-deps
+# The published smartmoneyconcepts metadata pins pandas==2.0.2, which
+# conflicts with the approved pandas-ta stack on Python 3.13.
+# Charting
+mplfinance
+
+# Storage
+tinydb
+portalocker
+
+# Scheduling
+apscheduler>=3.10
+
+# Observability
+structlog
+
+# Telegram
+python-telegram-bot>=21.0
+
+# MCP HTTP surface
+mcp>=1.27.0
+starlette>=0.27
+uvicorn>=0.31.1
+
+# HTTP (used by oandapyV20 internally + calendar fetch)
+requests>=2.31.0
+
+# Market data & calendars
+yfinance>=0.2.40
+pandas_market_calendars>=4.4.0
+
+# Testing
+pytest
+pytest-asyncio>=0.23.0
+pytest-mock
+time-machine
+freezegun>=1.2.0
+responses
