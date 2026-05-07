@@ -213,7 +213,7 @@ def test_evaluate_for_snapshot_fires_on_new_candle(tmp_path: Path) -> None:
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -225,7 +225,7 @@ def test_evaluate_for_snapshot_fires_on_new_candle(tmp_path: Path) -> None:
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert [a.id for a in fired] == [alert.id]
         assert repository.get_indicator_alert(alert.id).status == AlertStatus.FIRED
@@ -245,7 +245,7 @@ def test_evaluate_for_snapshot_dedup_same_candle(tmp_path: Path) -> None:
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -257,8 +257,8 @@ def test_evaluate_for_snapshot_dedup_same_candle(tmp_path: Path) -> None:
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
-        fired_second = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
+        fired_second = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired_second == []
     finally:
@@ -281,7 +281,7 @@ def test_evaluate_for_snapshot_new_candle_reevaluates(tmp_path: Path) -> None:
 
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -291,9 +291,9 @@ def test_evaluate_for_snapshot_new_candle_reevaluates(tmp_path: Path) -> None:
             }
         )
 
-        engine.evaluate_for_snapshot("XAU_USD", "M15", candles_v1, summary)
+        engine.evaluate_for_snapshot("SPX500_USD", "M15", candles_v1, summary)
         summary_v2 = fake_indicator_builder(candles_v2, "M15")
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles_v2, summary_v2)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles_v2, summary_v2)
 
         # Alert was already FIRED in call 1 (non-repeat) so it is skipped in call 2.
         # The important thing is that the engine didn't raise and returned a list.
@@ -313,7 +313,7 @@ def test_evaluate_for_snapshot_returns_empty_for_short_candles(tmp_path: Path) -
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -325,7 +325,7 @@ def test_evaluate_for_snapshot_returns_empty_for_short_candles(tmp_path: Path) -
         single_bar = _make_candles(n=1)
         summary = fake_indicator_builder(single_bar, "M15")
 
-        result = engine.evaluate_for_snapshot("XAU_USD", "M15", single_bar, summary)
+        result = engine.evaluate_for_snapshot("SPX500_USD", "M15", single_bar, summary)
 
         assert result == []
     finally:
@@ -355,7 +355,7 @@ def test_evaluate_for_snapshot_skips_non_matching_instrument(tmp_path: Path) -> 
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired == []
     finally:
@@ -373,7 +373,7 @@ def test_evaluate_for_snapshot_skips_non_matching_granularity(tmp_path: Path) ->
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "H1",   # different granularity
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -385,7 +385,7 @@ def test_evaluate_for_snapshot_skips_non_matching_granularity(tmp_path: Path) ->
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired == []
     finally:
@@ -404,7 +404,7 @@ def test_evaluate_for_snapshot_fires_on_startup_with_empty_cache(tmp_path: Path)
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -416,7 +416,7 @@ def test_evaluate_for_snapshot_fires_on_startup_with_empty_cache(tmp_path: Path)
         old_candles = _make_candles(base=BASE_TIME - pd.Timedelta(hours=2))
         summary = fake_indicator_builder(old_candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", old_candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", old_candles, summary)
 
         assert [a.id for a in fired] == [alert.id]
     finally:
@@ -452,7 +452,7 @@ def test_evaluate_for_snapshot_cross_condition(tmp_path: Path) -> None:
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "cross_up",
@@ -464,7 +464,7 @@ def test_evaluate_for_snapshot_cross_condition(tmp_path: Path) -> None:
         current_summary = cross_indicator_builder(candles, "M15")
         call_count[0] = 0  # reset after building summary
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, current_summary)
 
         assert [a.id for a in fired] == [alert.id]
         # previous_summary must have been built (one extra indicator_builder call)
@@ -633,15 +633,15 @@ def test_scan_orchestrator_calls_engine_for_each_snapshot(tmp_path: Path) -> Non
     stub_engine = StubIndicatorAlertEngine()
     orchestrator = _make_full_orchestrator(tmp_path, indicator_alert_engine=stub_engine)
 
-    orchestrator.refresh_snapshot("XAU_USD", "M15")
+    orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
-    assert ("XAU_USD", "M15") in stub_engine.calls
+    assert ("SPX500_USD", "M15") in stub_engine.calls
 
 
 def test_scan_orchestrator_skips_engine_when_none(tmp_path: Path) -> None:
     orchestrator = _make_full_orchestrator(tmp_path, indicator_alert_engine=None)
     # Should not raise — no engine to call
-    orchestrator.refresh_snapshot("XAU_USD", "M15")
+    orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
 
 def test_scan_orchestrator_engine_exception_does_not_abort_snapshot(
@@ -652,7 +652,7 @@ def test_scan_orchestrator_engine_exception_does_not_abort_snapshot(
     orchestrator = _make_full_orchestrator(tmp_path, indicator_alert_engine=stub_engine)
 
     with structlog.testing.capture_logs() as logs:
-        snapshot = orchestrator.refresh_snapshot("XAU_USD", "M15")
+        snapshot = orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
     assert snapshot is not None
     warning_events = [l for l in logs if l.get("log_level") == "warning"]

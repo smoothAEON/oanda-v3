@@ -9,6 +9,7 @@ These are the only instruments accepted by command validation and the instrument
 | Symbol | Class | Pip size |
 | --- | --- | --- |
 | `XAU_USD` | metal | `0.01` |
+| `SPX500_USD` | index CFD | `1.0` |
 | `XAG_USD` | metal | `0.0001` |
 | `EUR_USD` | major FX | `0.0001` |
 | `GBP_USD` | major FX | `0.0001` |
@@ -20,6 +21,9 @@ These are the only instruments accepted by command validation and the instrument
 | `EUR_GBP` | cross FX | `0.0001` |
 | `EUR_JPY` | cross FX | `0.01` |
 | `GBP_JPY` | cross FX | `0.01` |
+| `BCO_USD` | energy CFD | `0.01` |
+| `WTICO_USD` | energy CFD | `0.01` |
+| `JP225_USD` | index CFD | `1.0` |
 
 ## Direct Symbol Aliases
 
@@ -27,8 +31,12 @@ These aliases normalize to supported instruments and pass validation:
 
 | Alias | Normalized symbol |
 | --- | --- |
-| `gold` | `XAU_USD` |
+| `spx500usd` | `SPX500_USD` |
+| `spx500` | `SPX500_USD` |
+| `spx` | `SPX500_USD` |
+| `us500` | `SPX500_USD` |
 | `silver` | `XAG_USD` |
+| `oil` | `WTICO_USD` |
 
 ## Normalized But Still Rejected
 
@@ -36,7 +44,6 @@ The parser can normalize these aliases, but command validation rejects them beca
 
 | Alias | Normalized symbol | Current result |
 | --- | --- | --- |
-| `oil` | `WTICO_USD` | rejected |
 | `btc` | `BTC_USD` | rejected |
 | `eth` | `ETH_USD` | rejected |
 
@@ -51,10 +58,12 @@ The normalizer accepts common input formats before registry validation:
 | `eur-usd` | `EUR_USD` |
 | `EUR USD` | `EUR_USD` |
 | `GBPJPY` | `GBP_JPY` |
+| `spx500usd` | `SPX500_USD` |
 
 Rule:
 
 - any 6-letter alphabetic pair without separators is split after the first three characters
+- longer alphanumeric symbols ending in a 3-letter currency are split before the currency suffix
 
 ## Timeframe Aliases
 
@@ -89,14 +98,15 @@ Current validation rule:
 | --- | --- | --- |
 | standard FX | `EUR_USD`, `GBP_USD`, `AUD_USD` | `0.0001` pip size |
 | JPY FX | `USD_JPY`, `EUR_JPY`, `GBP_JPY` | `0.01` pip size |
-| gold | `XAU_USD` | `0.01` pip size |
-| silver | `XAG_USD` | `0.0001` pip size |
+| index CFDs | `SPX500_USD`, `JP225_USD` | `1.0` pip size |
+| metals | `XAU_USD`, `XAG_USD` | `0.01` or `0.0001` pip size |
+| energy CFDs | `BCO_USD`, `WTICO_USD` | `0.01` pip size |
 
 ## Current Command Defaults
 
 Current parser defaults from [`bot/parsing.py`](../bot/parsing.py):
 
-- default instrument for parser helpers: `XAU_USD`
+- default instrument for parser helpers: `SPX500_USD`
 - default timeframe for parser helpers: `H1`
 - default extractor timeframes: `M15`, `H1`, `H4`, `D`
 

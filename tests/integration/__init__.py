@@ -1,1 +1,1 @@
-"""Integration tests for Gold Signal Bot V3."""
+"""Integration tests for Market Signal Bot V3."""

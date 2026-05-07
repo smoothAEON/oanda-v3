@@ -25,7 +25,7 @@ On bot startup, idempotently seed RSI overbought/oversold indicator alerts for a
 
 | Instruments | Timeframes | Conditions |
 |---|---|---|
-| XAU_USD, EUR_USD, USD_JPY, USD_CHF | M15, H1, H4, D | RSI above 70, RSI below 30 |
+| SPX500_USD, EUR_USD, USD_JPY, USD_CHF | M15, H1, H4, D | RSI above 70, RSI below 30 |
 
 32 alerts maximum (4 × 4 × 2). Any that already exist (matched by instrument + granularity + indicator + condition + threshold) are skipped.
 

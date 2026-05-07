@@ -1,10 +1,10 @@
-# Gold Signal Bot V3 — Fresh Build Plan
+# Market Signal Bot V3 — Fresh Build Plan
 
 > Historical design plan written before implementation. Keep this document for lineage and guardrails, but use [README](../README.md), [tracker.md](./tracker.md), and [COMMANDS.md](./COMMANDS.md) for the current repo state.
 
 > **What this is**: A from-scratch build plan for an OANDA and Telegram bot stack with two bounded runtimes: the analysis runtime and a read-only trade-helper runtime. Written as if no codebase exists. Every design decision below was learned from two prior iterations (V1, V2) that got things wrong — the "What NOT to Do" section documents each mistake so they are never repeated.
 >
-> **Instruments**: **Commodities (XAU_USD, XAG_USD) and major/minor FX pairs** on **OANDA**. All instrument metadata, spread thresholds, pip conventions, and volume semantics are designed for OANDA's OTC market data — not exchange-traded instruments.
+> **Instruments**: **Index CFDs (SPX500_USD, JP225_USD), commodities (XAU_USD, XAG_USD, BCO_USD, WTICO_USD), and major/minor FX pairs** on **OANDA**. All instrument metadata, spread thresholds, pip conventions, and volume semantics are designed for OANDA's OTC market data — not exchange-traded instruments.
 >
 > **Scope**: Market analysis, feature extraction, read-only account-state monitoring, trade journaling, MAE/MFE tracking, trade alerts, price alerts, and indicator alerts. No signal scoring, trade planning, grading, confidence scoring, or trade execution.
 >
@@ -74,7 +74,7 @@
 
 **What went wrong (V1)**: Only XAU_USD (15 pips) and XAG_USD (10 pips) had explicit spread limits. Every other instrument fell back to a generic 5-pip default. For EUR_USD (normal spread ~0.3 pips), a 3-pip spread was flagged as "acceptable" even though it was 10x normal. For JPY pairs (pip value 0.01, not 0.0001), the pip calculation was off by 100x because the metadata lookup had a silent 0.0001 fallback.
 
-**The damage**: A 3-pip spread on EUR_USD during a news event went undetected as a spike. Gold spread was calculated with the wrong pip value, making the 15-pip threshold meaningless.
+**The damage**: A 3-pip spread on EUR_USD during a news event went undetected as a spike. XAU_USD spread was calculated with the wrong pip value, making the 15-pip threshold meaningless.
 
 **The rule**: Per-instrument metadata registry with explicit pip_size, typical_spread, max_spread, spike_multiplier. Cover every scan target instrument. Unknown instruments fail loud, no silent defaults.
 
@@ -84,7 +84,7 @@
 
 **What went wrong (V1)**: OANDA returns tick count (number of price ticks), not traded volume. The DataFrame column was named `volume`. OBV, MFI, and ADOSC indicators were computed as if this were exchange volume. A feature flag (`TA_FEATURE_VOLUME_ENABLED = False`) hid the problem — dead code that was tested and maintained but never used.
 
-**The damage**: If anyone enabled the flag, MFI readings on XAU_USD would be treated as institutional money flow when they were actually tick activity. Dead feature flags created false confidence that the capability existed.
+**The damage**: If anyone enabled the flag, MFI readings on SPX500_USD would be treated as institutional money flow when they were actually tick activity. Dead feature flags created false confidence that the capability existed.
 
 **The rule**: The column is named `tick_volume`. Volume indicators are prefixed `tick_` (e.g., `tick_obv`, `tick_mfi`). Every volume indicator output carries a `caveat` field stating it is computed from OANDA tick count. No dead feature flags — either the indicator is computed, labeled, and used, or the code doesn't exist.
 
@@ -276,7 +276,7 @@
 ## 4. Directory Structure
 
 ```
-gold-signal-bot-v3/
+market-signal-bot-v3/
 ├── .env.example
 ├── requirements.txt
 ├── pyproject.toml
@@ -418,7 +418,7 @@ Pydantic `BaseSettings` for type-safe, validated configuration.
 | `CALENDAR_REFRESH_HOURS` | `1` | Calendar data refresh interval |
 | `TINYDB_PATH` | `data/bot.json` | TinyDB database file path |
 | `POLL_INTERVAL_SECONDS` | `30` | Open-trade poll cadence |
-| `STREAM_INSTRUMENTS` | `XAU_USD,...` | Instruments subscribed to the live price stream |
+| `STREAM_INSTRUMENTS` | `SPX500_USD,...` | Instruments subscribed to the live price stream |
 | `MAE_MFE_MIN_PIP_MOVE` | `0.5` | Minimum pip delta before writing a new excursion sample |
 | `INDICATOR_SCAN_INTERVAL_MINUTES` | `5` | Scheduled indicator-alert scan cadence |
 
@@ -451,8 +451,8 @@ Single source of truth for all instrument metadata. Covers every scan target ins
 
 ```python
 class InstrumentSpec(BaseModel):
-    symbol: str                 # "XAU_USD"
-    pip_size: float             # 0.01 for XAU_USD, 0.0001 for XAG_USD/EUR_USD, 0.01 for JPY pairs
+    symbol: str                 # "SPX500_USD"
+    pip_size: float             # 0.01 for XAU_USD, 1.0 for SPX500_USD, 0.0001 for XAG_USD/EUR_USD, 0.01 for JPY pairs
     pip_value_per_lot: float    # value of 1 pip for 1 standard lot
     typical_spread_pips: float  # normal market hours spread
     max_spread_pips: float      # reject signals above this
@@ -466,6 +466,7 @@ class InstrumentSpec(BaseModel):
 | Symbol | Category | Pip Size | Typical Spread | Max Spread | Spike Mult |
 |--------|----------|----------|----------------|------------|------------|
 | XAU_USD | metal | 0.01 | 25.0 | 80.0 | 3.0x |
+| SPX500_USD | index_cfd | 1.0 | 1.0 | 5.0 | 3.0x |
 | XAG_USD | metal | 0.0001 | 200.0 | 600.0 | 3.0x |
 | EUR_USD | major_fx | 0.0001 | 0.3 | 3.0 | 5.0x |
 | GBP_USD | major_fx | 0.0001 | 0.5 | 4.0 | 4.0x |
@@ -932,7 +933,7 @@ scan_all_instruments()
 ├── Check calendar blackout via ForexCalendarProvider
 │   └── If blackout → log warning, proceed with caution flag
 │
-├── For each instrument (XAU_USD, EUR_USD, ...):
+├── For each instrument (SPX500_USD, EUR_USD, ...):
 │   │
 │   ├── For each timeframe (M15, H1, H4, D):
 │   │   │
@@ -964,13 +965,13 @@ scan_all_instruments()
 └── Log: scan_cycle_completed
 ```
 
-### 7.2 User Runs `/bias XAU_USD`
+### 7.2 User Runs `/bias SPX500_USD`
 
 ```
-/bias XAU_USD
+/bias SPX500_USD
 │
 ├── Read InstrumentBundle from MarketStateStore
-│   └── If stale or missing → trigger scan for XAU_USD
+│   └── If stale or missing → trigger scan for SPX500_USD
 │
 ├── Extract htf_bias from bundle
 │   ├── direction, alignment_score
@@ -984,10 +985,10 @@ scan_all_instruments()
 └── Return to bot layer for Telegram formatting
 ```
 
-### 7.3 User Runs `/smc XAU_USD H1`
+### 7.3 User Runs `/smc SPX500_USD H1`
 
 ```
-/smc XAU_USD H1
+/smc SPX500_USD H1
 │
 ├── Read TimeframeSnapshot from MarketStateStore
 │   └── If stale or missing → fetch + compute + publish
@@ -1063,7 +1064,7 @@ tests/
 | Tick-volume indicators carry caveat | `volume_type == "tick_count"`, caveat present |
 | Unknown instrument raises KeyError | No silent fallback to wrong defaults |
 | All 12 scan instruments in registry | No instrument missed |
-| Gold spread uses gold thresholds (not default) | Instrument-specific, not generic |
+| XAU_USD spread uses instrument thresholds (not default) | Instrument-specific, not generic |
 | Spread spike detected against typical (not deque) | No cold-start blind spot |
 | `snapshot_published` log emits version | Observability contract enforced |
 | `bundle_published` log emits members | Cross-timeframe traceability |
@@ -1163,7 +1164,7 @@ Implementation status note (2026-03-21): Stage 10 is complete. The P2 economic-c
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/price <instrument>` | `XAU_USD`, `EUR_USD`, … | Current bid/ask/spread from OANDA |
+| `/price <instrument>` | `SPX500_USD`, `EUR_USD`, … | Current bid/ask/spread from OANDA |
 | `/marketstatus` | — | Market open/closed, session (London/NY/Tokyo/Sydney), next open/close |
 | `/session` | — | Active trading session details and overlap windows |
 | `/calendar` | `[today\|week]` | Upcoming high-impact economic events from ForexFactory |
@@ -1172,32 +1173,32 @@ Implementation status note (2026-03-21): Stage 10 is complete. The P2 economic-c
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/smc <instrument> [timeframe]` | `XAU_USD H1` | SMC context: BOS/CHOCH, OBs, liquidity from snapshot |
-| `/bias <instrument>` | `XAU_USD` | Multi-timeframe HTF bias with alignment score and regime changepoints |
-| `/ob <instrument> [timeframe]` | `XAU_USD H4` | Order block zones (mitigated/unmitigated) |
-| `/sr <instrument>` | `XAU_USD` | Support/resistance levels |
-| `/sfp <instrument> [timeframe]` | `XAU_USD H4` | Swing Failure Patterns |
+| `/smc <instrument> [timeframe]` | `SPX500_USD H1` | SMC context: BOS/CHOCH, OBs, liquidity from snapshot |
+| `/bias <instrument>` | `SPX500_USD` | Multi-timeframe HTF bias with alignment score and regime changepoints |
+| `/ob <instrument> [timeframe]` | `SPX500_USD H4` | Order block zones (mitigated/unmitigated) |
+| `/sr <instrument>` | `SPX500_USD` | Support/resistance levels |
+| `/sfp <instrument> [timeframe]` | `SPX500_USD H4` | Swing Failure Patterns |
 | `/turtlesoup <instrument> [timeframe]` | `GBP_USD M15` | Turtle Soup reversal patterns |
-| `/indicators <instrument> [timeframe]` | `XAU_USD H1` | Technical indicators (EMA, RSI, ATR, MACD) from snapshot |
-| `/structure <instrument> [timeframe]` | `XAU_USD H4` | Market structure (BOS/CHOCH history) |
+| `/indicators <instrument> [timeframe]` | `SPX500_USD H1` | Technical indicators (EMA, RSI, ATR, MACD) from snapshot |
+| `/structure <instrument> [timeframe]` | `SPX500_USD H4` | Market structure (BOS/CHOCH history) |
 
 ### Multi-Instrument Scanning
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/scan [instrument]` | `XAU_USD` or omit for all | Run scan cycle, publish snapshots + bundles, return signals |
+| `/scan [instrument]` | `SPX500_USD` or omit for all | Run scan cycle, publish snapshots + bundles, return signals |
 
 ### Charting
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/chart <instrument> <timeframe> [--count N] [--overlays clean\|smc\|indicators] [--smc orderblocks\|structure\|liquidity] [--trade positions\|orders\|sl\|tp\|gslo] [--alert pricealerts] [--indicator ema\|bollinger\|vwap\|rsi\|macd]` | `XAU_USD H1 --count 500 --overlays smc` | mplfinance chart with process-isolated rendering, candle-focused overlays, runtime trade, pending-order, and alert layers, and explicit selector flags. |
+| `/chart <instrument> <timeframe> [--count N] [--overlays clean\|smc\|indicators] [--smc orderblocks\|structure\|liquidity] [--trade positions\|orders\|sl\|tp\|gslo] [--alert pricealerts] [--indicator ema\|bollinger\|vwap\|rsi\|macd]` | `SPX500_USD H1 --count 500 --overlays smc` | mplfinance chart with process-isolated rendering, candle-focused overlays, runtime trade, pending-order, and alert layers, and explicit selector flags. |
 
 ### Alerts
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/pricealert <instrument> <price>` | `XAU_USD 2000` | Set price alert (persisted in TinyDB) |
+| `/pricealert <instrument> <price>` | `SPX500_USD 2000` | Set price alert (persisted in TinyDB) |
 | `/listalerts` | — | List your active price alerts |
 | `/clearalerts [id]` | `3` or omit for all | Clear one or all alerts |
 
@@ -1213,7 +1214,7 @@ Implementation status note (2026-03-21): Stage 10 is complete. The P2 economic-c
 
 | Command | Args | Description |
 |---------|------|-------------|
-| `/indicatoralert <instrument> <timeframe> <indicator> <condition> [threshold] [note]` | `XAU_USD H1 RSI below 30 oversold watch` | Set an automatically evaluated RSI, Stochastic, MACD, or SMA-cross alert on `M15`, `H1`, `H4`, or `D` |
+| `/indicatoralert <instrument> <timeframe> <indicator> <condition> [threshold] [note]` | `SPX500_USD H1 RSI below 30 oversold watch` | Set an automatically evaluated RSI, Stochastic, MACD, or SMA-cross alert on `M15`, `H1`, `H4`, or `D` |
 | `/listindicators` | — | List active indicator alerts |
 | `/clearindicator <id>` | `4` | Clear one indicator alert |
 
@@ -1240,7 +1241,7 @@ Implementation status note (2026-03-21): Stage 10 is complete. The P2 economic-c
 | `/ban <user_id>` | `123456789` | Ban a user |
 | `/unban <user_id>` | `123456789` | Unban a user |
 | `/sessions` | — | View all active sessions |
-| `/override <instrument> <direction>` | `XAU_USD long` | Clear signal cooldown for instrument |
+| `/override <instrument> <direction>` | `SPX500_USD long` | Clear signal cooldown for instrument |
 | `/mute` | — | Suppress auto-scan signal alerts (commands still work) |
 | `/unmute` | — | Resume auto-scan alerts |
 | `/scheduler [pause\|resume\|status]` | — | Control APScheduler (pause/resume auto-scans, view job list) |
@@ -1249,7 +1250,7 @@ Implementation status note (2026-03-21): Stage 10 is complete. The P2 economic-c
 
 - **No inline computation**: Every analysis command reads from `MarketStateStore`. If the snapshot or bundle is stale or missing, the command triggers a targeted scan cycle, then reads the result. Commands never call detectors directly.
 - **Trade-helper command boundary**: Journal, MAE/MFE, and alert commands read or persist state through the documented TinyDB-backed services. They do not invent trade execution paths.
-- **Instrument argument**: Accepts OANDA format (`XAU_USD`). Invalid instruments rejected against the instrument registry — no silent defaults.
+- **Instrument argument**: Accepts OANDA format (`SPX500_USD`). Invalid instruments rejected against the instrument registry — no silent defaults.
 - **Timeframe argument**: Optional on most analysis commands. Defaults to `H1` if omitted. Accepts: `M1`, `M5`, `M15`, `M30`, `H1`, `H4`, `D`.
 - **Auth**: All commands require an active session except `/start` and `/help`. Auth handled by `require_auth` decorator.
 - **New in V3**: `/calendar`, `/scheduler`. Removed: no standalone commands that duplicate scan output.

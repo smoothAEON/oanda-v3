@@ -1,2 +1,2 @@
-"""Telegram runtime package for Gold Signal Bot V3."""
+"""Telegram runtime package for Market Signal Bot V3."""
 

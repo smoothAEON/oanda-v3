@@ -1,2 +1,2 @@
-"""Persistence package for Gold Signal Bot V3."""
+"""Persistence package for Market Signal Bot V3."""
 

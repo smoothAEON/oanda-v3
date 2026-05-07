@@ -1,6 +1,6 @@
 # MCP Guide
 
-Gold Signal Bot V3 includes an embedded FastMCP server. It exposes the same live runtime used by the Telegram bot so an MCP client can inspect market data, account state, journal/history, alerts, and sanitized evidence snapshots.
+Market Signal Bot V3 includes an embedded FastMCP server. It exposes the same live runtime used by the Telegram bot so an MCP client can inspect market data, account state, journal/history, alerts, and sanitized evidence snapshots.
 
 The MCP surface is intentionally LLM-first. The bot serves fresh structured evidence; the LLM forms the market opinion.
 
@@ -74,12 +74,12 @@ The server publishes four JSON resources:
 
 | Resource | Purpose |
 | --- | --- |
-| `goldsignal://capabilities` | Transport, candle limits, published snapshot frames, and read/write surface summary. |
-| `goldsignal://supported-instruments` | Aliases, scan instruments, registry metadata, and live OANDA catalog instruments. |
-| `goldsignal://alert-defaults` | Indicator seed defaults and time-alert timezone. |
-| `goldsignal://tool-surface` | Current tool names and descriptions from `mcp_server/server.py`. |
+| `marketsignal://capabilities` | Transport, candle limits, published snapshot frames, and read/write surface summary. |
+| `marketsignal://supported-instruments` | Aliases, scan instruments, registry metadata, and live OANDA catalog instruments. |
+| `marketsignal://alert-defaults` | Indicator seed defaults and time-alert timezone. |
+| `marketsignal://tool-surface` | Current tool names and descriptions from `mcp_server/server.py`. |
 
-Use `goldsignal://tool-surface` as the source of truth when a client needs to confirm the live tool list.
+Use `marketsignal://tool-surface` as the source of truth when a client needs to confirm the live tool list.
 
 ## Recommended LLM Flow
 
@@ -199,7 +199,7 @@ Raw candle instrument aliases:
 
 | Alias | Instrument |
 | --- | --- |
-| `gold` | `XAU_USD` |
+| `spx500usd` | `SPX500_USD` |
 | `silver` | `XAG_USD` |
 | `oil` | `WTICO_USD` |
 | `btc` | `BTC_USD` |
@@ -207,7 +207,7 @@ Raw candle instrument aliases:
 
 Flexible instrument formatting is accepted before validation. For example, `EUR/USD`, `eur-usd`, `eur usd`, and `eurusd` normalize to `EUR_USD`.
 
-Available raw candle instruments below are the configured OANDA account catalog captured on 2026-05-04. The runtime source of truth is `goldsignal://supported-instruments`, because OANDA account entitlements can differ by account and environment.
+Available raw candle instruments below are the configured OANDA account catalog captured on 2026-05-04. The runtime source of truth is `marketsignal://supported-instruments`, because OANDA account entitlements can differ by account and environment.
 
 #### CURRENCY instruments (68)
 

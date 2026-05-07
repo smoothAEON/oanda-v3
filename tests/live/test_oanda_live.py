@@ -112,7 +112,7 @@ class TestLiveMultipleTimeframes:
 class TestLiveMultipleInstruments:
     @pytest.mark.parametrize(
         "instrument",
-        ["XAU_USD", "EUR_USD", "GBP_USD", "USD_JPY", "GBP_JPY"],
+        ["SPX500_USD", "EUR_USD", "GBP_USD", "USD_JPY", "GBP_JPY"],
     )
     def test_fetches_candles_for_instrument(
         self, provider: OandaMarketDataProvider, instrument: str
@@ -141,9 +141,9 @@ class TestLiveGetCurrentPrice:
         assert snap.spread_pips >= 0
         assert snap.fetched_at is not None
 
-    def test_xau_usd_price_is_in_gold_range(self, provider: OandaMarketDataProvider) -> None:
-        snap = provider.get_current_price("XAU_USD")
-        # Gold should be somewhere in the hundreds to thousands range
+    def test_spx500_usd_price_is_in_index_range(self, provider: OandaMarketDataProvider) -> None:
+        snap = provider.get_current_price("SPX500_USD")
+        # spx500usd should be somewhere in the hundreds to thousands range
         assert snap.bid > 500
         assert snap.ask > 500
 
@@ -155,7 +155,7 @@ class TestLiveGetCurrentPrice:
 
     @pytest.mark.parametrize(
         "instrument",
-        ["XAU_USD", "XAG_USD", "EUR_USD", "USD_JPY", "GBP_JPY"],
+        ["SPX500_USD", "XAG_USD", "EUR_USD", "USD_JPY", "GBP_JPY"],
     )
     def test_price_snapshot_for_instrument(
         self, provider: OandaMarketDataProvider, instrument: str

@@ -1,2 +1,2 @@
-"""Test package for Gold Signal Bot V3."""
+"""Test package for Market Signal Bot V3."""
 

@@ -1,4 +1,4 @@
-"""Indicator package for Gold Signal Bot V3."""
+"""Indicator package for Market Signal Bot V3."""
 
 from __future__ import annotations
 

@@ -91,8 +91,8 @@ class TestSaveAndLoad:
         assert csv_store.load_candles("EUR_USD", "M15") is None
 
     def test_save_creates_parent_directories(self, csv_store: CandleCsvStore) -> None:
-        csv_store.save_candles("XAU_USD", "D", make_candles())
-        assert csv_store.path_for("XAU_USD", "D").exists()
+        csv_store.save_candles("SPX500_USD", "D", make_candles())
+        assert csv_store.path_for("SPX500_USD", "D").exists()
 
     def test_save_validates_schema(self, csv_store: CandleCsvStore) -> None:
         bad = make_candles().rename(columns={"tick_volume": "volume"})

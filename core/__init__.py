@@ -1,2 +1,2 @@
-"""Core contracts package for Gold Signal Bot V3."""
+"""Core contracts package for Market Signal Bot V3."""
 

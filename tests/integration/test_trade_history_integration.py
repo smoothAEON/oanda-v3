@@ -50,7 +50,7 @@ class StubHistoryClient:
                 "id": "101",
                 "accountID": "account-id",
                 "type": "ORDER_FILL",
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "orderID": "5001",
                 "batchID": "6001",
                 "reason": "MARKET_ORDER",
@@ -64,7 +64,7 @@ class StubHistoryClient:
                 "id": "102",
                 "accountID": "account-id",
                 "type": "ORDER_FILL",
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "orderID": "5002",
                 "batchID": "6002",
                 "reason": "MARKET_ORDER",
@@ -84,7 +84,7 @@ class StubHistoryClient:
                 "id": "103",
                 "accountID": "account-id",
                 "type": "ORDER_FILL",
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "orderID": "5003",
                 "batchID": "6003",
                 "reason": "TAKE_PROFIT_ORDER",
@@ -107,7 +107,7 @@ class StubHistoryClient:
                 "accountID": "account-id",
                 "type": "DAILY_FINANCING",
                 "time": "2026-04-01T04:00:00Z",
-                "positionFinancings": [{"instrument": "XAU_USD", "financing": "-0.25"}],
+                "positionFinancings": [{"instrument": "SPX500_USD", "financing": "-0.25"}],
             },
             {
                 "id": "105",
@@ -189,7 +189,7 @@ async def test_trade_history_backfill_projects_journal_and_powers_tradehistory_c
             tradehistory_update,
             SimpleNamespace(
                 bot_data=bot_data,
-                args=["custom:2026-04-01:2026-04-01", "all", "XAU_USD"],
+                args=["custom:2026-04-01:2026-04-01", "all", "SPX500_USD"],
             ),
         )
 

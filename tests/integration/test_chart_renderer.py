@@ -226,19 +226,19 @@ def test_runtime_overlays_filter_to_requested_instrument(tmp_path: Path) -> None
         trade_repository=SimpleNamespace(
             list_open=lambda: [
                 build_trade(instrument="EUR_USD"),
-                build_trade(trade_id="other", instrument="XAU_USD"),
+                build_trade(trade_id="other", instrument="SPX500_USD"),
             ]
         ),
         alert_repository=SimpleNamespace(
             list_pending_price_alerts=lambda: [
                 build_alert(instrument="EUR_USD"),
-                build_alert(id=2, instrument="XAU_USD"),
+                build_alert(id=2, instrument="SPX500_USD"),
             ]
         ),
         account_client=SimpleNamespace(
             get_open_orders=lambda: [
                 build_pending_order("EUR_USD"),
-                build_pending_order("XAU_USD"),
+                build_pending_order("SPX500_USD"),
             ]
         ),
     )

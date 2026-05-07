@@ -32,7 +32,7 @@ def test_price_alert_engine_uses_ask_for_above_and_bid_for_below(tmp_path: Path)
     try:
         above = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 1,
@@ -41,7 +41,7 @@ def test_price_alert_engine_uses_ask_for_above_and_bid_for_below(tmp_path: Path)
         )
         below = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3048.5,
                 "direction": "below",
                 "chat_id": 1,
@@ -51,7 +51,7 @@ def test_price_alert_engine_uses_ask_for_above_and_bid_for_below(tmp_path: Path)
 
         armed = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -59,7 +59,7 @@ def test_price_alert_engine_uses_ask_for_above_and_bid_for_below(tmp_path: Path)
         )
         first = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -67,7 +67,7 @@ def test_price_alert_engine_uses_ask_for_above_and_bid_for_below(tmp_path: Path)
         )
         second = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3048.4,
                 ask=3048.7,
                 time=BASE_TIME,
@@ -92,7 +92,7 @@ def test_price_alert_engine_requires_safe_side_before_firing(tmp_path: Path) -> 
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 1,
@@ -102,7 +102,7 @@ def test_price_alert_engine_requires_safe_side_before_firing(tmp_path: Path) -> 
 
         first = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3050.0,
                 ask=3050.2,
                 time=BASE_TIME,
@@ -110,7 +110,7 @@ def test_price_alert_engine_requires_safe_side_before_firing(tmp_path: Path) -> 
         )
         second = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -118,7 +118,7 @@ def test_price_alert_engine_requires_safe_side_before_firing(tmp_path: Path) -> 
         )
         third = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.9,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -141,7 +141,7 @@ def test_price_alert_engine_writes_alert_history_after_successful_fire(tmp_path:
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 1,
@@ -151,7 +151,7 @@ def test_price_alert_engine_writes_alert_history_after_successful_fire(tmp_path:
 
         engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -159,7 +159,7 @@ def test_price_alert_engine_writes_alert_history_after_successful_fire(tmp_path:
         )
         fired = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -182,7 +182,7 @@ def test_price_alert_engine_rearms_from_persisted_safe_side_after_restart(tmp_pa
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 1,
@@ -191,7 +191,7 @@ def test_price_alert_engine_rearms_from_persisted_safe_side_after_restart(tmp_pa
         )
         PriceAlertEngine(repository).evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -201,7 +201,7 @@ def test_price_alert_engine_rearms_from_persisted_safe_side_after_restart(tmp_pa
         stored = repository.get_price_alert(alert.id)
         fired = PriceAlertEngine(repository).evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.9,
                 ask=3050.2,
                 time=BASE_TIME,
@@ -227,7 +227,7 @@ def test_price_alert_notification_failure_leaves_alert_pending_and_armed(tmp_pat
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 1,
@@ -237,7 +237,7 @@ def test_price_alert_notification_failure_leaves_alert_pending_and_armed(tmp_pat
 
         engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -245,7 +245,7 @@ def test_price_alert_notification_failure_leaves_alert_pending_and_armed(tmp_pat
         )
         fired = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -282,7 +282,7 @@ async def test_price_alert_delivery_blocks_even_when_called_from_async_context(t
     try:
         repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 7,
@@ -293,7 +293,7 @@ async def test_price_alert_delivery_blocks_even_when_called_from_async_context(t
 
         fired = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -301,6 +301,6 @@ async def test_price_alert_delivery_blocks_even_when_called_from_async_context(t
         )
 
         assert [item.alert.chat_id for item in fired] == [7]
-        assert sent_messages == [(7, "XAU_USD:3050.1")]
+        assert sent_messages == [(7, "SPX500_USD:3050.1")]
     finally:
         store.close()

@@ -1,2 +1,2 @@
-"""Shared pytest scaffolding for Gold Signal Bot V3."""
+"""Shared pytest scaffolding for Market Signal Bot V3."""
 

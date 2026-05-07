@@ -98,11 +98,11 @@ async def test_mcp_streamable_http_session_initializes_and_executes_alert_tool(t
                 initialized = await session.initialize()
                 tools = await session.list_tools()
                 resources = await session.list_resources()
-                tool_surface = await session.read_resource("goldsignal://tool-surface")
+                tool_surface = await session.read_resource("marketsignal://tool-surface")
                 created = await session.call_tool(
                     "create_price_alert",
                     {
-                        "instrument": "gold",
+                        "instrument": "spx500usd",
                         "target_price": 3350.0,
                         "direction": "above",
                         "note": "protocol audit",
@@ -120,23 +120,23 @@ async def test_mcp_streamable_http_session_initializes_and_executes_alert_tool(t
                 )
                 listed_time = await session.call_tool("list_time_alerts", {})
 
-        assert initialized.serverInfo.name == "Gold Signal Bot V3 MCP"
+        assert initialized.serverInfo.name == "Market Signal Bot V3 MCP"
         assert len(tools.tools) == len(TOOL_SPECS)
         assert {str(resource.uri) for resource in resources.resources} == {
-            "goldsignal://alert-defaults",
-            "goldsignal://capabilities",
-            "goldsignal://supported-instruments",
-            "goldsignal://tool-surface",
+            "marketsignal://alert-defaults",
+            "marketsignal://capabilities",
+            "marketsignal://supported-instruments",
+            "marketsignal://tool-surface",
         }
         assert tool_surface.contents[0].mimeType == "application/json"
         assert created.isError is False
         assert created.structuredContent["chat_id"] == 555
-        assert created.structuredContent["instrument"] == "XAU_USD"
+        assert created.structuredContent["instrument"] == "SPX500_USD"
         assert created.structuredContent["status"] == "PENDING"
         assert listed.isError is False
         assert listed.structuredContent["chat_id"] == 555
         assert len(listed.structuredContent["alerts"]) == 1
-        assert listed.structuredContent["alerts"][0]["instrument"] == "XAU_USD"
+        assert listed.structuredContent["alerts"][0]["instrument"] == "SPX500_USD"
         assert created_time.isError is False
         assert created_time.structuredContent["schedule"] == "once"
         assert created_time.structuredContent["local_time"] == "2027-04-05 09:30"

@@ -28,7 +28,7 @@ def write_env_file(path: Path, **overrides: str) -> Path:
         "TELEGRAM_CHAT_ID": "123456789",
         "TELEGRAM_BOT_PASSWORD": "bot-password",
         "TELEGRAM_ADMIN_IDS": "111,222",
-        "STREAM_INSTRUMENTS": "EUR_USD,XAU_USD",
+        "STREAM_INSTRUMENTS": "EUR_USD,SPX500_USD",
     }
     values.update(overrides)
     path.write_text(
@@ -338,11 +338,11 @@ async def test_account_client_returns_price_snapshot(tmp_path: Path) -> None:
         },
     )
 
-    snapshot = await client.get_pricing("gold")
+    snapshot = await client.get_pricing("spx500usd")
 
     assert isinstance(snapshot, PriceSnapshot)
-    assert snapshot.instrument == "XAU_USD"
-    assert snapshot.spread_pips == pytest.approx(50.0)
+    assert snapshot.instrument == "SPX500_USD"
+    assert snapshot.spread_pips == pytest.approx(0.5)
     assert snapshot.fetched_at.tzinfo is not None
 
 
@@ -675,7 +675,7 @@ def test_stream_client_prefers_top_of_book_prices_over_closeout_prices() -> None
     event = OandaStreamClient._normalize_stream_payload(
         {
             "type": "PRICE",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "bids": [{"price": "4780.685", "liquidity": 100}],
             "asks": [{"price": "4781.595", "liquidity": 100}],
             "closeoutBid": "4771.085",
@@ -860,7 +860,7 @@ async def test_account_client_rejects_missing_pricing_timestamp(tmp_path: Path) 
     )
 
     with pytest.raises(ValueError, match="timestamp is missing"):
-        await client.get_pricing("gold")
+        await client.get_pricing("spx500usd")
 
 
 def test_stream_client_stream_prices_is_annotated_as_async_generator() -> None:

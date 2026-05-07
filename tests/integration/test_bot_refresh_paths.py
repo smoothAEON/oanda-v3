@@ -234,7 +234,7 @@ class StubScanOrchestrator:
         self.scan_force_calls.append(force)
         self.last_scan_status = SimpleNamespace(
             run_kind="full",
-            scanned_instruments=("EUR_USD", "XAU_USD"),
+            scanned_instruments=("EUR_USD", "SPX500_USD"),
             snapshots_published=8,
             forced_market_fetch=force,
             errors=("EUR_USD: none",),
@@ -500,18 +500,18 @@ async def test_scan_then_pdl_uses_closed_market_cache_without_seed_snapshot(tmp_
     try:
         await bot_module.scan_command(
             scan_update,
-            SimpleNamespace(bot_data=bot_data, args=["XAU_USD"]),
+            SimpleNamespace(bot_data=bot_data, args=["SPX500_USD"]),
         )
         await bot_module.pdl_command(
             pdl_update,
-            SimpleNamespace(bot_data=bot_data, args=["XAU_USD"]),
+            SimpleNamespace(bot_data=bot_data, args=["SPX500_USD"]),
         )
     finally:
         store.close()
 
-    assert "Scan complete for XAU_USD" in scan_update.effective_message.texts[-1]
-    assert "Data unavailable for XAU_USD H1. Try /scan first." not in pdl_update.effective_message.texts[-1]
-    assert "PDL XAU_USD" in pdl_update.effective_message.texts[-1]
+    assert "Scan complete for SPX500_USD" in scan_update.effective_message.texts[-1]
+    assert "Data unavailable for SPX500_USD H1. Try /scan first." not in pdl_update.effective_message.texts[-1]
+    assert "PDL SPX500_USD" in pdl_update.effective_message.texts[-1]
 
 
 @pytest.mark.asyncio

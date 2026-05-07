@@ -14,7 +14,7 @@ BASE_TIME = datetime(2026, 3, 21, 8, 0, tzinfo=timezone.utc)
 def build_open_trade(*, trade_id: str = "trade-1", notes: str | None = None) -> TradeRecord:
     return TradeRecord(
         trade_id=trade_id,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=3020.50,
         close_price=None,

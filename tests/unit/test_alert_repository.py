@@ -19,7 +19,7 @@ def test_price_alert_repository_allocates_ids_and_tracks_pending_and_fired(tmp_p
     try:
         alert = store.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 123,
@@ -153,7 +153,7 @@ def test_alert_history_repository_filters_by_chat_and_type(tmp_path: Path) -> No
                 alert_type="price",
                 alert_id=10,
                 chat_id=321,
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 granularity=None,
                 indicator=None,
                 triggered_at=BASE_TIME,

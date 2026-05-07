@@ -14,13 +14,13 @@ def test_registry_contains_exactly_the_supported_scan_instruments() -> None:
     ("symbol", "pip_size", "pip_value_per_lot", "lot_size", "category"),
     [
         ("XAU_USD", 0.01, 1.0, 100, "metal"),
+        ("SPX500_USD", 1.0, 1.0, 1, "index_cfd"),
         ("XAG_USD", 0.0001, 0.5, 5_000, "metal"),
         ("EUR_USD", 0.0001, 10.0, 100_000, "major_fx"),
         ("USD_JPY", 0.01, 1_000.0, 100_000, "major_fx"),
         ("GBP_JPY", 0.01, 1_000.0, 100_000, "minor_fx"),
         ("BCO_USD", 0.01, 0.01, 1, "energy_cfd"),
         ("WTICO_USD", 0.01, 0.01, 1, "energy_cfd"),
-        ("SPX500_USD", 1.0, 1.0, 1, "index_cfd"),
         ("JP225_USD", 1.0, 1.0, 1, "index_cfd"),
     ],
 )

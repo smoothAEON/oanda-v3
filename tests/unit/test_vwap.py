@@ -95,7 +95,7 @@ def test_build_vwap_read_result_maps_fields_and_bands(monkeypatch) -> None:
 
     result = build_vwap_read_result(
         candles,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         timeframe="D",
         anchor="weekly",
         bands=(2.0, 1.0),
@@ -134,7 +134,7 @@ def test_build_vwap_read_result_without_bands(monkeypatch) -> None:
 
     result = build_vwap_read_result(
         candles,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         timeframe="H1",
         anchor="D",
         bands=None,

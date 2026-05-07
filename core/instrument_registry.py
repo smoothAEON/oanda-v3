@@ -14,7 +14,11 @@ if TYPE_CHECKING:
     from config.settings import Settings
 
 INSTRUMENT_ALIASES = {
-    "gold": "XAU_USD",
+    "spx500usd": "SPX500_USD",
+    "spx500": "SPX500_USD",
+    "spx": "SPX500_USD",
+    "us500": "SPX500_USD",
+    "us500usd": "SPX500_USD",
     "silver": "XAG_USD",
     "oil": "WTICO_USD",
     "btc": "BTC_USD",
@@ -23,6 +27,7 @@ INSTRUMENT_ALIASES = {
 
 SCAN_INSTRUMENTS = (
     "XAU_USD",
+    "SPX500_USD",
     "XAG_USD",
     "EUR_USD",
     "GBP_USD",
@@ -36,7 +41,6 @@ SCAN_INSTRUMENTS = (
     "GBP_JPY",
     "BCO_USD",
     "WTICO_USD",
-    "SPX500_USD",
     "JP225_USD",
 )
 
@@ -74,6 +78,13 @@ INSTRUMENT_REGISTRY: dict[str, InstrumentSpec] = {
         pip_value_per_lot=1.0,
         lot_size=100,
         category="metal",
+    ),
+    "SPX500_USD": InstrumentSpec(
+        symbol="SPX500_USD",
+        pip_size=1.0,
+        pip_value_per_lot=1.0,
+        lot_size=1,
+        category="index_cfd",
     ),
     "XAG_USD": InstrumentSpec(
         symbol="XAG_USD",
@@ -166,13 +177,6 @@ INSTRUMENT_REGISTRY: dict[str, InstrumentSpec] = {
         pip_value_per_lot=0.01,
         lot_size=1,
         category="energy_cfd",
-    ),
-    "SPX500_USD": InstrumentSpec(
-        symbol="SPX500_USD",
-        pip_size=1.0,
-        pip_value_per_lot=1.0,
-        lot_size=1,
-        category="index_cfd",
     ),
     "JP225_USD": InstrumentSpec(
         symbol="JP225_USD",
@@ -416,8 +420,15 @@ def normalize_instrument(instrument: str) -> str:
     )
     normalized = "_".join(part for part in normalized.split("_") if part)
 
-    if "_" not in normalized and normalized.isalpha() and len(normalized) == 6:
-        normalized = f"{normalized[:3]}_{normalized[3:]}"
+    if "_" not in normalized:
+        if normalized.isalpha() and len(normalized) == 6:
+            normalized = f"{normalized[:3]}_{normalized[3:]}"
+        elif (
+            len(normalized) > 6
+            and normalized[-3:].isalpha()
+            and normalized[:-3].isalnum()
+        ):
+            normalized = f"{normalized[:-3]}_{normalized[-3:]}"
 
     return normalized
 

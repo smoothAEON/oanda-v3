@@ -1,2 +1,2 @@
-"""Orchestration package for Gold Signal Bot V3."""
+"""Orchestration package for Market Signal Bot V3."""
 

@@ -75,7 +75,7 @@ def build_settings(tmp_path: Path, **overrides: str) -> Settings:
     return load_settings(env_file=env_file)
 
 
-def build_spread(instrument: str = "XAU_USD") -> SpreadResult:
+def build_spread(instrument: str = "SPX500_USD") -> SpreadResult:
     spec = get_instrument_spec(instrument)
     bid = 3300.0
     ask = bid + (spec.pip_size * 2.0)
@@ -90,7 +90,7 @@ def build_spread(instrument: str = "XAU_USD") -> SpreadResult:
     )
 
 
-def build_snapshot(*, instrument: str = "XAU_USD", timeframe: str = "H1") -> TimeframeSnapshot:
+def build_snapshot(*, instrument: str = "SPX500_USD", timeframe: str = "H1") -> TimeframeSnapshot:
     delta = get_timeframe_delta(timeframe)
     return TimeframeSnapshot(
         instrument=instrument,
@@ -127,7 +127,7 @@ def build_snapshot(*, instrument: str = "XAU_USD", timeframe: str = "H1") -> Tim
     )
 
 
-def build_analysis_snapshot(*, instrument: str = "XAU_USD", timeframe: str = "H1") -> TimeframeSnapshot:
+def build_analysis_snapshot(*, instrument: str = "SPX500_USD", timeframe: str = "H1") -> TimeframeSnapshot:
     latest_break = StructureBreak(
         kind="BOS",
         direction="BULLISH",
@@ -235,7 +235,7 @@ def test_mcp_alert_tools_use_default_chat_id(tmp_path: Path) -> None:
     service = BotMcpService(runtime=runtime, settings=settings)
 
     created = asyncio.run(
-        service.create_price_alert("XAU_USD", target_price=3350.0, direction="above", note="breakout")
+        service.create_price_alert("SPX500_USD", target_price=3350.0, direction="above", note="breakout")
     )
     assert created["chat_id"] == 777
 
@@ -299,18 +299,18 @@ def test_mcp_get_price_uses_rest_pricing_by_default(tmp_path: Path) -> None:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_price("gold"))
+    result = asyncio.run(service.get_price("spx500usd"))
 
     assert result["source"] == "rest_pricing"
     assert result["fallback_note"] is None
     assert result["bid"] == 3049.90
-    assert runtime.account_client.calls == ["XAU_USD"]
+    assert runtime.account_client.calls == ["SPX500_USD"]
 
 
 def test_mcp_get_price_prefers_live_stream_when_requested(tmp_path: Path) -> None:
     settings = build_settings(tmp_path)
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=BASE_TIME,
@@ -327,7 +327,7 @@ def test_mcp_get_price_prefers_live_stream_when_requested(tmp_path: Path) -> Non
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_price("gold", prefer_live=True))
+    result = asyncio.run(service.get_price("spx500usd", prefer_live=True))
 
     assert result["source"] == "live_stream"
     assert result["fallback_note"] is None
@@ -358,18 +358,18 @@ def test_mcp_get_price_falls_back_to_rest_when_live_quote_missing(tmp_path: Path
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_price("gold", prefer_live=True))
+    result = asyncio.run(service.get_price("spx500usd", prefer_live=True))
 
     assert result["source"] == "rest_pricing"
     assert result["fallback_note"] == "live stream unavailable or stale; REST pricing used"
-    assert runtime.account_client.calls == ["XAU_USD"]
+    assert runtime.account_client.calls == ["SPX500_USD"]
 
 
 def test_mcp_get_journal_trade_prefers_live_stream_for_open_trade_price(tmp_path: Path) -> None:
     settings = build_settings(tmp_path)
     trade = TradeRecord(
         trade_id="trade-1",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=3000.0,
         close_price=None,
@@ -388,7 +388,7 @@ def test_mcp_get_journal_trade_prefers_live_stream_for_open_trade_price(tmp_path
         notes=None,
     )
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=BASE_TIME,
@@ -529,7 +529,7 @@ def test_mcp_get_mae_mfe_uses_live_first_prices_with_rest_fallback(tmp_path: Pat
             return [
                 TradeRecord(
                     trade_id="long-1",
-                    instrument="XAU_USD",
+                    instrument="SPX500_USD",
                     units=1.0,
                     open_price=3000.0,
                     close_price=None,
@@ -574,7 +574,7 @@ def test_mcp_get_mae_mfe_uses_live_first_prices_with_rest_fallback(tmp_path: Pat
             return {"mae_pips": 5.0, "mfe_pips": 12.0}
 
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=BASE_TIME,
@@ -599,7 +599,7 @@ def test_mcp_get_mae_mfe_uses_live_first_prices_with_rest_fallback(tmp_path: Pat
         excursion_repository=FakeExcursionRepository(),
         account_client=FakeAccountClient(),
         stream_task=SimpleNamespace(
-            latest_quote=lambda instrument, max_age_seconds=None: live_tick if instrument == "XAU_USD" else None
+            latest_quote=lambda instrument, max_age_seconds=None: live_tick if instrument == "SPX500_USD" else None
         ),
     )
     service = BotMcpService(runtime=runtime, settings=settings)
@@ -740,7 +740,7 @@ def test_get_smc_snapshot_uses_published_state_before_refresh(tmp_path: Path) ->
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_smc_snapshot("XAU_USD", "H1", refresh_policy="if_missing"))
+    result = asyncio.run(service.get_smc_snapshot("SPX500_USD", "H1", refresh_policy="if_missing"))
 
     assert result["snapshot_version"] == published.version
     assert runtime.scan_orchestrator.calls == 0
@@ -765,9 +765,9 @@ def test_get_smc_snapshot_refreshes_when_missing(tmp_path: Path) -> None:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_smc_snapshot("XAU_USD", "H1", refresh_policy="if_missing"))
+    result = asyncio.run(service.get_smc_snapshot("SPX500_USD", "H1", refresh_policy="if_missing"))
 
-    assert result["instrument"] == "XAU_USD"
+    assert result["instrument"] == "SPX500_USD"
     assert runtime.scan_orchestrator.calls == 1
 
 
@@ -803,7 +803,7 @@ def test_mcp_analysis_payloads_are_sanitized_for_hybrid_evidence_tools(tmp_path:
     class FakeScanOrchestrator:
         last_scan_status = SimpleNamespace(
             run_kind="full",
-            scanned_instruments=("XAU_USD",),
+            scanned_instruments=("SPX500_USD",),
             snapshots_published=1,
             errors=(),
         )
@@ -818,14 +818,14 @@ def test_mcp_analysis_payloads_are_sanitized_for_hybrid_evidence_tools(tmp_path:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    smc = asyncio.run(service.get_smc_snapshot("gold", "H1", refresh_policy="never"))
-    structure = asyncio.run(service.get_structure("gold", "H1", refresh_policy="never"))
-    order_blocks = asyncio.run(service.get_order_blocks("gold", "H1", refresh_policy="never"))
+    smc = asyncio.run(service.get_smc_snapshot("spx500usd", "H1", refresh_policy="never"))
+    structure = asyncio.run(service.get_structure("spx500usd", "H1", refresh_policy="never"))
+    order_blocks = asyncio.run(service.get_order_blocks("spx500usd", "H1", refresh_policy="never"))
     mitigated_blocks = asyncio.run(
-        service.get_order_blocks("gold", "H1", refresh_policy="never", mitigation_status="mitigated")
+        service.get_order_blocks("spx500usd", "H1", refresh_policy="never", mitigation_status="mitigated")
     )
     unmitigated_blocks = asyncio.run(
-        service.get_order_blocks("gold", "H1", refresh_policy="never", mitigation_status="unmitigated")
+        service.get_order_blocks("spx500usd", "H1", refresh_policy="never", mitigation_status="unmitigated")
     )
 
     for payload in (smc, structure, order_blocks, mitigated_blocks, unmitigated_blocks):
@@ -848,7 +848,7 @@ def test_mcp_analysis_payloads_are_sanitized_for_hybrid_evidence_tools(tmp_path:
     with pytest.raises(ValueError, match="Order-block mitigation filter"):
         asyncio.run(
             service.get_order_blocks(
-                "gold",
+                "spx500usd",
                 "H1",
                 refresh_policy="never",
                 mitigation_status="inactive",
@@ -883,16 +883,16 @@ def test_mcp_scan_tools_forward_force_flags(tmp_path: Path) -> None:
     service = BotMcpService(runtime=runtime, settings=settings)
 
     scan_result = asyncio.run(service.scan_all(force=True))
-    instrument_result = asyncio.run(service.scan_instrument("XAU_USD", force=True))
-    snapshot_result = asyncio.run(service.refresh_snapshot("XAU_USD", "H1", force=True))
+    instrument_result = asyncio.run(service.scan_instrument("SPX500_USD", force=True))
+    snapshot_result = asyncio.run(service.refresh_snapshot("SPX500_USD", "H1", force=True))
 
     assert scan_result["forced_market_fetch"] is True
     assert instrument_result["force"] is True
     assert "H1" in instrument_result["snapshots"]
     assert snapshot_result["force"] is True
     assert runtime.scan_orchestrator.scan_all_calls == [True]
-    assert runtime.scan_orchestrator.refresh_instrument_calls == [("XAU_USD", True)]
-    assert runtime.scan_orchestrator.refresh_snapshot_calls == [("XAU_USD", "H1", True)]
+    assert runtime.scan_orchestrator.refresh_instrument_calls == [("SPX500_USD", True)]
+    assert runtime.scan_orchestrator.refresh_snapshot_calls == [("SPX500_USD", "H1", True)]
 
 
 def test_mcp_snapshot_tools_reject_raw_or_unpublished_timeframes(tmp_path: Path) -> None:
@@ -905,9 +905,9 @@ def test_mcp_snapshot_tools_reject_raw_or_unpublished_timeframes(tmp_path: Path)
     service = BotMcpService(runtime=runtime, settings=settings)
 
     with pytest.raises(ValueError, match="Unsupported timeframe 'S5'"):
-        asyncio.run(service.refresh_snapshot("XAU_USD", "S5"))
+        asyncio.run(service.refresh_snapshot("SPX500_USD", "S5"))
     with pytest.raises(ValueError, match="Published snapshot timeframe"):
-        asyncio.run(service.get_smc_snapshot("XAU_USD", "M5", refresh_policy="never"))
+        asyncio.run(service.get_smc_snapshot("SPX500_USD", "M5", refresh_policy="never"))
 
 
 def test_mcp_get_candles_uses_account_client_directly_by_default(tmp_path: Path) -> None:
@@ -928,7 +928,7 @@ def test_mcp_get_candles_uses_account_client_directly_by_default(tmp_path: Path)
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_candles("XAU_USD", "H1", count=2))
+    result = asyncio.run(service.get_candles("SPX500_USD", "H1", count=2))
 
     assert result["source"] == "oanda_api_direct"
     assert result["force"] is False
@@ -936,7 +936,7 @@ def test_mcp_get_candles_uses_account_client_directly_by_default(tmp_path: Path)
     assert result["returned_count"] == 2
     assert result["bars"][0]["open"] == 3300.0
     assert "fetched directly from OANDA" in result["warning"]
-    assert runtime.account_client.calls == [("XAU_USD", "H1", 2)]
+    assert runtime.account_client.calls == [("SPX500_USD", "H1", 2)]
 
 
 def test_mcp_get_candles_accepts_raw_oanda_granularity_and_live_catalog_instrument(
@@ -984,9 +984,9 @@ def test_mcp_get_candles_rejects_monthly_and_over_limit(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="Unsupported OANDA candle granularity"):
-        asyncio.run(service.get_candles("XAU_USD", "M", count=2))
+        asyncio.run(service.get_candles("SPX500_USD", "M", count=2))
     with pytest.raises(ValueError, match="less than or equal to 5000"):
-        asyncio.run(service.get_candles("XAU_USD", "H1", count=5001))
+        asyncio.run(service.get_candles("SPX500_USD", "H1", count=5001))
 
 
 def test_mcp_get_candles_force_is_direct_fetch_compatibility_flag(tmp_path: Path) -> None:
@@ -1007,13 +1007,13 @@ def test_mcp_get_candles_force_is_direct_fetch_compatibility_flag(tmp_path: Path
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_candles("XAU_USD", "H1", count=2, force=True))
+    result = asyncio.run(service.get_candles("SPX500_USD", "H1", count=2, force=True))
 
     assert result["source"] == "oanda_api_direct"
     assert result["force"] is True
     assert result["freshness"] is None
     assert "no additional effect" in result["warning"]
-    assert runtime.account_client.calls == [("XAU_USD", "H1", 2)]
+    assert runtime.account_client.calls == [("SPX500_USD", "H1", 2)]
 
 
 def test_mcp_get_vwap_returns_semantic_payload(tmp_path: Path) -> None:
@@ -1048,10 +1048,10 @@ def test_mcp_get_vwap_returns_semantic_payload(tmp_path: Path) -> None:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_vwap("XAU_USD", "H1", "D", [2.0, 1.0]))
+    result = asyncio.run(service.get_vwap("SPX500_USD", "H1", "D", [2.0, 1.0]))
 
     assert any(spec["name"] == "get_vwap" for spec in TOOL_SPECS)
-    assert result["instrument"] == "XAU_USD"
+    assert result["instrument"] == "SPX500_USD"
     assert result["timeframe"] == "H1"
     assert result["anchor"] == "D"
     assert result["source"] == "oanda_api"
@@ -1060,7 +1060,7 @@ def test_mcp_get_vwap_returns_semantic_payload(tmp_path: Path) -> None:
     assert result["bands"][0]["deviation"] == 1.0
     assert "tick count" in result["caveat"]
     assert runtime.market_data_provider.calls
-    assert runtime.market_data_provider.freshness_calls == [("XAU_USD", "H1")]
+    assert runtime.market_data_provider.freshness_calls == [("SPX500_USD", "H1")]
 
 
 def test_mcp_list_transfers_defaults_to_trailing_year_and_updates_tool_surface(tmp_path: Path) -> None:
@@ -1289,14 +1289,14 @@ def test_mcp_get_ohlc_mid_uses_account_client_directly(tmp_path: Path) -> None:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_ohlc("XAU_USD", "H1", count=2, price_component="mid"))
+    result = asyncio.run(service.get_ohlc("SPX500_USD", "H1", count=2, price_component="mid"))
 
     assert result["price_component"] == "mid"
     assert result["source"] == "oanda_api_direct"
     assert result["freshness"] is None
     assert result["bars"][0]["open"] == 3300.0
     assert "fetched directly from OANDA" in result["warning"]
-    assert runtime.account_client.calls == [("XAU_USD", "H1", 2)]
+    assert runtime.account_client.calls == [("SPX500_USD", "H1", 2)]
 
 
 def test_mcp_get_ohlc_supports_bid_ask_mode(tmp_path: Path) -> None:
@@ -1330,14 +1330,14 @@ def test_mcp_get_ohlc_supports_bid_ask_mode(tmp_path: Path) -> None:
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_ohlc("XAU_USD", "H1", count=2, price_component="bid_ask"))
+    result = asyncio.run(service.get_ohlc("SPX500_USD", "H1", count=2, price_component="bid_ask"))
 
     assert result["price_component"] == "bid_ask"
     assert result["source"] == "oanda_api_bid_ask_direct"
     assert result["freshness"] is None
     assert result["bars"][0]["bid_open"] == 3300.0
     assert result["bars"][0]["ask_close"] == 3300.7
-    assert runtime.account_client.bid_ask_calls == [("XAU_USD", "H1", 2)]
+    assert runtime.account_client.bid_ask_calls == [("SPX500_USD", "H1", 2)]
 
 
 def test_run_application_with_mcp_uses_embedded_server_and_disables_access_log(tmp_path: Path) -> None:
@@ -1527,7 +1527,7 @@ def test_mcp_get_trade_history_forwards_start_and_end_dates(tmp_path: Path) -> N
         service.get_trade_history(
             "day",
             "all",
-            "gold",
+            "spx500usd",
             2,
             start_date="2026-04-01",
             end_date="2026-04-01",
@@ -1536,7 +1536,7 @@ def test_mcp_get_trade_history_forwards_start_and_end_dates(tmp_path: Path) -> N
 
     assert result["period"] == "custom:2026-04-01:2026-04-01"
     assert runtime.trade_history_service.calls == [
-        ("day", "all", "XAU_USD", 2, "2026-04-01", "2026-04-01")
+        ("day", "all", "SPX500_USD", 2, "2026-04-01", "2026-04-01")
     ]
 
 
@@ -1547,10 +1547,10 @@ def test_mcp_price_batch_tools_and_alert_history_use_default_chat_scope(tmp_path
     runtime = SimpleNamespace(settings=settings, alert_repository=alert_repository)
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    created = asyncio.run(service.create_price_alert("gold", target_price=3350.0, direction="above"))
+    created = asyncio.run(service.create_price_alert("spx500usd", target_price=3350.0, direction="above"))
     other_chat = alert_repository.upsert_price_alert(
         {
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "target_price": 3360.0,
             "direction": "above",
             "chat_id": 999,
@@ -1558,10 +1558,10 @@ def test_mcp_price_batch_tools_and_alert_history_use_default_chat_scope(tmp_path
         }
     )
 
-    cleared = asyncio.run(service.clear_all_price_alerts(confirm=True, instrument="gold"))
+    cleared = asyncio.run(service.clear_all_price_alerts(confirm=True, instrument="spx500usd"))
     replaced = asyncio.run(
         service.replace_alert_grid(
-            "gold",
+            "spx500usd",
             alerts=[
                 {"target_price": 3345.0, "direction": "below", "note": "retest"},
                 {"target_price": 3365.0, "direction": "above"},
@@ -1576,7 +1576,7 @@ def test_mcp_price_batch_tools_and_alert_history_use_default_chat_scope(tmp_path
             alert_type="price",
             alert_id=created["id"],
             chat_id=777,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             granularity=None,
             indicator=None,
             triggered_at=BASE_TIME,
@@ -1591,7 +1591,7 @@ def test_mcp_price_batch_tools_and_alert_history_use_default_chat_scope(tmp_path
             alert_type="price",
             alert_id=other_chat.id,
             chat_id=999,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             granularity=None,
             indicator=None,
             triggered_at=BASE_TIME + timedelta(minutes=1),
@@ -1609,8 +1609,8 @@ def test_mcp_price_batch_tools_and_alert_history_use_default_chat_scope(tmp_path
     assert replaced["cleared_count"] == 0
     assert replaced["created_count"] == 2
     assert {(item.instrument, item.target_price) for item in pending} == {
-        ("XAU_USD", 3345.0),
-        ("XAU_USD", 3365.0),
+        ("SPX500_USD", 3345.0),
+        ("SPX500_USD", 3365.0),
     }
     assert alert_repository.get_price_alert(other_chat.id).status == AlertStatus.PENDING
     assert history["returned_count"] == 1
@@ -1673,7 +1673,7 @@ def test_mcp_get_price_records_spread_history_for_explicit_read(tmp_path: Path) 
     settings = build_settings(tmp_path)
     store = TradeStore(db_path=settings.tinydb_path, settings=settings)
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=BASE_TIME,
@@ -1691,15 +1691,15 @@ def test_mcp_get_price_records_spread_history_for_explicit_read(tmp_path: Path) 
     )
     service = BotMcpService(runtime=runtime, settings=settings)
 
-    result = asyncio.run(service.get_price("gold", prefer_live=True))
-    history = store.get_recent_spreads("XAU_USD", limit=5)
+    result = asyncio.run(service.get_price("spx500usd", prefer_live=True))
+    history = store.get_recent_spreads("SPX500_USD", limit=5)
 
     assert result["source"] == "live_stream"
     assert history[0]["reason"] == "mcp_get_price"
     assert history[0]["source"] == "live_stream"
     assert "is_" + "acceptable" not in history[0]
     assert "is_" + "spiking" not in history[0]
-    assert history[0]["spread_pips"] == pytest.approx(30.0)
+    assert history[0]["spread_pips"] == pytest.approx(0.3)
 
     store.close()
 
@@ -1708,7 +1708,7 @@ def test_mcp_get_spread_snapshot_records_history_and_enforces_live_contract(tmp_
     settings = build_settings(tmp_path)
     store = TradeStore(db_path=settings.tinydb_path, settings=settings)
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=BASE_TIME,
@@ -1719,7 +1719,7 @@ def test_mcp_get_spread_snapshot_records_history_and_enforces_live_contract(tmp_
             return SimpleNamespace(
                 bid=3049.90,
                 ask=3050.20,
-                spread_pips=30.0,
+                spread_pips=0.3,
                 fetched_at=BASE_TIME,
             )
 
@@ -1733,7 +1733,7 @@ def test_mcp_get_spread_snapshot_records_history_and_enforces_live_contract(tmp_
 
     result = asyncio.run(
         service.get_spread_snapshot(
-            "gold",
+            "spx500usd",
             include_history=True,
             history_limit=5,
             prefer_live=True,
@@ -1743,14 +1743,14 @@ def test_mcp_get_spread_snapshot_records_history_and_enforces_live_contract(tmp_
 
     assert result["quote_source"] == "live_stream"
     assert result["include_history"] is True
-    assert result["current"]["spread_pips"] == pytest.approx(30.0)
+    assert result["current"]["spread_pips"] == pytest.approx(0.3)
     assert result["history"][0]["reason"] == "mcp_get_spread_snapshot"
     assert result["history"][0]["source"] == "live_stream"
 
     runtime.stream_task = SimpleNamespace(latest_quote=lambda instrument, max_age_seconds=None: None)
     service = BotMcpService(runtime=runtime, settings=settings)
     with pytest.raises(ValueError, match="Live stream quote unavailable or stale"):
-        asyncio.run(service.get_spread_snapshot("gold", require_live=True))
+        asyncio.run(service.get_spread_snapshot("spx500usd", require_live=True))
 
     store.close()
 
@@ -1778,12 +1778,12 @@ def test_mcp_get_trade_stats_delegates_to_trade_stats_service(tmp_path: Path) ->
             "day",
             start_date="2026-04-01",
             end_date="2026-04-01",
-            instrument="gold",
+            instrument="spx500usd",
         )
     )
 
     assert result["summary"]["trade_count"] == 2
-    assert calls == [("day", "2026-04-01", "2026-04-01", "XAU_USD")]
+    assert calls == [("day", "2026-04-01", "2026-04-01", "SPX500_USD")]
 
 
 def test_mcp_get_correlation_delegates_to_correlation_service(tmp_path: Path) -> None:
@@ -1809,7 +1809,7 @@ def test_mcp_get_correlation_delegates_to_correlation_service(tmp_path: Path) ->
 
     result = asyncio.run(
         service.get_correlation(
-            "gold",
+            "spx500usd",
             "USD_JPY",
             timeframe="D",
             lookback=20,
@@ -1818,4 +1818,4 @@ def test_mcp_get_correlation_delegates_to_correlation_service(tmp_path: Path) ->
     )
 
     assert result["correlation"] == -0.42
-    assert calls == [("gold", "USD_JPY", "D", 20, "inverse")]
+    assert calls == [("spx500usd", "USD_JPY", "D", 20, "inverse")]

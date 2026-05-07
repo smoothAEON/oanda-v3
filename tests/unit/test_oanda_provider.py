@@ -236,7 +236,7 @@ class TestGetCandlesAPIResponse:
 
 
 class TestGetCurrentPrice:
-    def test_computes_spread_in_pips_for_xau(self, tmp_path: Path) -> None:
+    def test_computes_spread_in_pips_for_spx500(self, tmp_path: Path) -> None:
         pricing = {
             "prices": [
                 {
@@ -247,10 +247,10 @@ class TestGetCurrentPrice:
             ]
         }
         provider, cache = build_provider(tmp_path, pricing_payload=pricing)
-        snap = provider.get_current_price("XAU_USD")
+        snap = provider.get_current_price("SPX500_USD")
         assert snap.bid == 3050.50
         assert snap.ask == 3051.00
-        assert snap.spread_pips == pytest.approx(50.0)  # 0.50 / 0.01
+        assert snap.spread_pips == pytest.approx(0.5)  # 0.50 / 1.0
         cache.trade_store.close()
 
     def test_empty_prices_raises(self, tmp_path: Path) -> None:
@@ -327,10 +327,10 @@ class TestWeekendGapHandling:
             provider, cache = build_provider(
                 tmp_path, candle_payloads=[thursday_payload, monday_gap_payload]
             )
-            provider.get_candles("XAU_USD", "D", count=1)
+            provider.get_candles("SPX500_USD", "D", count=1)
 
         with freeze_time("2026-03-23T08:00:00Z"):
-            result = provider.get_candles("XAU_USD", "D", count=1)
+            result = provider.get_candles("SPX500_USD", "D", count=1)
 
         assert len(result) == 1
         assert result["time"].iloc[0] == pd.Timestamp("2026-03-19T00:00:00Z")

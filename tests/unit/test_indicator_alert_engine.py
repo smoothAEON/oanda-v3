@@ -209,7 +209,7 @@ def test_evaluate_for_snapshot_fires_on_new_candle(tmp_path: Path) -> None:
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -221,7 +221,7 @@ def test_evaluate_for_snapshot_fires_on_new_candle(tmp_path: Path) -> None:
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert [a.id for a in fired] == [alert.id]
         assert repository.get_indicator_alert(alert.id).status == AlertStatus.FIRED
@@ -241,7 +241,7 @@ def test_evaluate_for_snapshot_dedup_same_candle(tmp_path: Path) -> None:
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -253,8 +253,8 @@ def test_evaluate_for_snapshot_dedup_same_candle(tmp_path: Path) -> None:
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
-        fired_second = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
+        fired_second = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired_second == []
     finally:
@@ -277,7 +277,7 @@ def test_evaluate_for_snapshot_new_candle_reevaluates(tmp_path: Path) -> None:
 
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -287,9 +287,9 @@ def test_evaluate_for_snapshot_new_candle_reevaluates(tmp_path: Path) -> None:
             }
         )
 
-        engine.evaluate_for_snapshot("XAU_USD", "M15", candles_v1, summary)
+        engine.evaluate_for_snapshot("SPX500_USD", "M15", candles_v1, summary)
         summary_v2 = fake_indicator_builder(candles_v2, "M15")
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles_v2, summary_v2)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles_v2, summary_v2)
 
         # Alert was already FIRED in call 1 (non-repeat) so it is skipped in call 2.
         # The important thing is that the engine didn't raise and returned a list.
@@ -311,7 +311,7 @@ def test_indicator_notification_failure_does_not_advance_cursor(tmp_path: Path) 
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -323,9 +323,9 @@ def test_indicator_notification_failure_does_not_advance_cursor(tmp_path: Path) 
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
         stored = repository.get_indicator_alert(alert.id)
-        cursor = repository.get_indicator_alert_evaluation_cursor("XAU_USD", "M15")
+        cursor = repository.get_indicator_alert_evaluation_cursor("SPX500_USD", "M15")
 
         assert fired == []
         assert stored is not None
@@ -347,7 +347,7 @@ def test_evaluate_for_snapshot_returns_empty_for_short_candles(tmp_path: Path) -
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -359,7 +359,7 @@ def test_evaluate_for_snapshot_returns_empty_for_short_candles(tmp_path: Path) -
         single_bar = _make_candles(n=1)
         summary = fake_indicator_builder(single_bar, "M15")
 
-        result = engine.evaluate_for_snapshot("XAU_USD", "M15", single_bar, summary)
+        result = engine.evaluate_for_snapshot("SPX500_USD", "M15", single_bar, summary)
 
         assert result == []
     finally:
@@ -389,7 +389,7 @@ def test_evaluate_for_snapshot_skips_non_matching_instrument(tmp_path: Path) -> 
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired == []
     finally:
@@ -407,7 +407,7 @@ def test_evaluate_for_snapshot_skips_non_matching_granularity(tmp_path: Path) ->
     try:
         repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "H1",   # different granularity
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -419,7 +419,7 @@ def test_evaluate_for_snapshot_skips_non_matching_granularity(tmp_path: Path) ->
         candles = _make_candles()
         summary = fake_indicator_builder(candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired == []
     finally:
@@ -438,7 +438,7 @@ def test_evaluate_for_snapshot_fires_on_startup_with_empty_cursor(tmp_path: Path
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -450,7 +450,7 @@ def test_evaluate_for_snapshot_fires_on_startup_with_empty_cursor(tmp_path: Path
         old_candles = _make_candles(base=BASE_TIME - pd.Timedelta(hours=2))
         summary = fake_indicator_builder(old_candles, "M15")
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", old_candles, summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", old_candles, summary)
 
         assert [a.id for a in fired] == [alert.id]
     finally:
@@ -471,7 +471,7 @@ def test_evaluate_for_snapshot_dedup_survives_restart(tmp_path: Path) -> None:
     try:
         first_repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "below",
@@ -480,7 +480,7 @@ def test_evaluate_for_snapshot_dedup_survives_restart(tmp_path: Path) -> None:
                 "created_at": BASE_TIME,
             }
         )
-        first_engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        first_engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
     finally:
         first_store.close()
 
@@ -492,7 +492,7 @@ def test_evaluate_for_snapshot_dedup_survives_restart(tmp_path: Path) -> None:
         indicator_builder=fake_indicator_builder,
     )
     try:
-        fired = second_engine.evaluate_for_snapshot("XAU_USD", "M15", candles, summary)
+        fired = second_engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, summary)
 
         assert fired == []
     finally:
@@ -535,8 +535,8 @@ def _sma_cross_engine(tmp_path: Path, current_sma_50: float | None, current_sma_
     return engine, repository, store
 
 
-def test_sma_cross_golden_cross_fires(tmp_path: Path) -> None:
-    """Spread goes from negative to positive — golden cross fires."""
+def test_sma_cross_bullish_cross_fires(tmp_path: Path) -> None:
+    """Spread goes from negative to positive — bullish cross fires."""
     engine, repository, store = _sma_cross_engine(
         tmp_path,
         current_sma_50=210.0, current_sma_200=200.0,  # spread +10
@@ -544,20 +544,20 @@ def test_sma_cross_golden_cross_fires(tmp_path: Path) -> None:
     )
     try:
         alert = repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_up",
             "chat_id": 1, "created_at": BASE_TIME,
         })
         candles = _make_candles()
         current_summary = _make_sma_cross_summary(210.0, 200.0)
-        fired = engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
         assert [a.id for a in fired] == [alert.id]
     finally:
         store.close()
 
 
 def test_sma_cross_death_cross_fires(tmp_path: Path) -> None:
-    """Spread goes from positive to negative — death cross fires."""
+    """Spread goes from positive to negative — bearish cross fires."""
     engine, repository, store = _sma_cross_engine(
         tmp_path,
         current_sma_50=190.0, current_sma_200=200.0,  # spread -10
@@ -565,13 +565,13 @@ def test_sma_cross_death_cross_fires(tmp_path: Path) -> None:
     )
     try:
         alert = repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_down",
             "chat_id": 1, "created_at": BASE_TIME,
         })
         candles = _make_candles()
         current_summary = _make_sma_cross_summary(190.0, 200.0)
-        fired = engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
         assert [a.id for a in fired] == [alert.id]
     finally:
         store.close()
@@ -586,13 +586,13 @@ def test_sma_cross_no_cross_does_not_fire(tmp_path: Path) -> None:
     )
     try:
         repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_up",
             "chat_id": 1, "created_at": BASE_TIME,
         })
         candles = _make_candles()
         current_summary = _make_sma_cross_summary(210.0, 200.0)
-        fired = engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
         assert fired == []
     finally:
         store.close()
@@ -612,7 +612,7 @@ def test_sma_cross_raises_when_sma_200_unavailable(tmp_path: Path) -> None:
     engine = IndicatorAlertEngine(repository, StubProvider(), indicator_builder=builder)
     try:
         repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_up",
             "chat_id": 1, "created_at": BASE_TIME,
         })
@@ -620,7 +620,7 @@ def test_sma_cross_raises_when_sma_200_unavailable(tmp_path: Path) -> None:
         current_summary = _make_sma_cross_summary(sma_50=210.0, sma_200=None)
         import pytest
         with pytest.raises(RuntimeError):
-            engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+            engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
     finally:
         store.close()
 
@@ -639,13 +639,13 @@ def test_sma_cross_uses_baseline_when_previous_sma_200_is_unavailable(tmp_path: 
     engine = IndicatorAlertEngine(repository, StubProvider(), indicator_builder=builder)
     try:
         repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_up",
             "chat_id": 1, "created_at": BASE_TIME,
         })
         candles = _make_candles()
         current_summary = _make_sma_cross_summary(sma_50=210.0, sma_200=200.0)
-        fired = engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
 
         assert len(fired) == 1
     finally:
@@ -664,7 +664,7 @@ def test_sma_cross_evaluate_for_snapshot_raises_when_metric_unavailable(tmp_path
     engine = IndicatorAlertEngine(repository, StubProvider(), indicator_builder=builder)
     try:
         repository.upsert_indicator_alert({
-            "instrument": "XAU_USD", "granularity": "H1",
+            "instrument": "SPX500_USD", "granularity": "H1",
             "indicator": IndicatorKind.SMA_CROSS, "condition": "cross_up",
             "chat_id": 1, "created_at": BASE_TIME,
         })
@@ -672,7 +672,7 @@ def test_sma_cross_evaluate_for_snapshot_raises_when_metric_unavailable(tmp_path
         current_summary = _make_sma_cross_summary(sma_50=210.0, sma_200=None)
         import pytest
         with pytest.raises(RuntimeError):
-            engine.evaluate_for_snapshot("XAU_USD", "H1", candles, current_summary)
+            engine.evaluate_for_snapshot("SPX500_USD", "H1", candles, current_summary)
     finally:
         store.close()
 
@@ -706,7 +706,7 @@ def test_evaluate_for_snapshot_cross_condition(tmp_path: Path) -> None:
     try:
         alert = repository.upsert_indicator_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "granularity": "M15",
                 "indicator": IndicatorKind.RSI,
                 "condition": "cross_up",
@@ -718,7 +718,7 @@ def test_evaluate_for_snapshot_cross_condition(tmp_path: Path) -> None:
         current_summary = cross_indicator_builder(candles, "M15")
         call_count[0] = 0  # reset after building summary
 
-        fired = engine.evaluate_for_snapshot("XAU_USD", "M15", candles, current_summary)
+        fired = engine.evaluate_for_snapshot("SPX500_USD", "M15", candles, current_summary)
 
         assert [a.id for a in fired] == [alert.id]
         # previous_summary must have been built (one extra indicator_builder call)

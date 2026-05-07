@@ -1,3 +1,3 @@
-"""Signal filter package for Gold Signal Bot V3."""
+"""Signal filter package for Market Signal Bot V3."""
 
 __all__: list[str] = []

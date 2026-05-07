@@ -54,7 +54,7 @@ class TestUpsertAndQuery:
         assert result["source"] == "oanda_api"
 
     def test_get_returns_none_for_missing_key(self, store: TradeStore) -> None:
-        assert store.get_cache_metadata("XAU_USD", "M15") is None
+        assert store.get_cache_metadata("SPX500_USD", "M15") is None
 
     def test_upsert_overwrites_existing_record(self, store: TradeStore) -> None:
         kwargs = dict(
@@ -80,12 +80,12 @@ class TestUpsertAndQuery:
         )
         store.upsert_cache_metadata(instrument="EUR_USD", timeframe="H1", **base)
         store.upsert_cache_metadata(instrument="EUR_USD", timeframe="M15", **base)
-        store.upsert_cache_metadata(instrument="XAU_USD", timeframe="H1", **base)
+        store.upsert_cache_metadata(instrument="SPX500_USD", timeframe="H1", **base)
 
         assert store.get_cache_metadata("EUR_USD", "H1") is not None
         assert store.get_cache_metadata("EUR_USD", "M15") is not None
-        assert store.get_cache_metadata("XAU_USD", "H1") is not None
-        assert store.get_cache_metadata("XAU_USD", "M15") is None
+        assert store.get_cache_metadata("SPX500_USD", "H1") is not None
+        assert store.get_cache_metadata("SPX500_USD", "M15") is None
 
 
 class TestDatetimeSerialization:
@@ -214,7 +214,7 @@ def test_trade_store_round_trips_trade_history_records(store: TradeStore) -> Non
                 "accountID": "account-id",
                 "type": "ORDER_FILL",
                 "time": "2026-04-01T01:00:00Z",
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "tradeOpened": {"tradeID": "trade-1", "units": "10"},
             }
         ]
@@ -227,7 +227,7 @@ def test_trade_store_round_trips_trade_history_records(store: TradeStore) -> Non
                 batch_id="500",
                 event_type="OPEN",
                 account_id="account-id",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 trade_id="trade-1",
                 order_id="9001",
                 units=Decimal("10"),
@@ -244,10 +244,10 @@ def test_trade_store_round_trips_trade_history_records(store: TradeStore) -> Non
                 raw_json="{}",
             ),
             FinancingEvent(
-                event_id="102:DAILY_FINANCING:XAU_USD",
+                event_id="102:DAILY_FINANCING:SPX500_USD",
                 transaction_id="102",
                 account_id="account-id",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 financing=Decimal("-0.10"),
                 time_utc=datetime(2026, 4, 1, 21, 0, tzinfo=timezone.utc),
                 time_local=datetime(2026, 4, 2, 5, 0, tzinfo=ZoneInfo("Asia/Singapore")),
@@ -484,7 +484,7 @@ def test_trade_store_cancel_price_alerts_for_chat_filters_instrument(store: Trad
     )
     clear_one = store.upsert_price_alert(
         {
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "target_price": 3050.0,
             "direction": "above",
             "chat_id": 7,
@@ -493,7 +493,7 @@ def test_trade_store_cancel_price_alerts_for_chat_filters_instrument(store: Trad
     )
     other_chat = store.upsert_price_alert(
         {
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "target_price": 3055.0,
             "direction": "above",
             "chat_id": 8,
@@ -501,7 +501,7 @@ def test_trade_store_cancel_price_alerts_for_chat_filters_instrument(store: Trad
         }
     )
 
-    cancelled = store.cancel_price_alerts_for_chat(7, instrument="XAU_USD")
+    cancelled = store.cancel_price_alerts_for_chat(7, instrument="SPX500_USD")
 
     assert [alert.id for alert in cancelled] == [clear_one.id]
     assert store.get_price_alert(clear_one.id).status == AlertStatus.CANCELLED
@@ -512,7 +512,7 @@ def test_trade_store_cancel_price_alerts_for_chat_filters_instrument(store: Trad
 def test_trade_store_replace_price_alert_grid_replaces_pending_alerts_atomically(store: TradeStore) -> None:
     old_grid = store.upsert_price_alert(
         {
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "target_price": 3050.0,
             "direction": "above",
             "chat_id": 7,
@@ -531,7 +531,7 @@ def test_trade_store_replace_price_alert_grid_replaces_pending_alerts_atomically
 
     created = store.replace_price_alert_grid(
         chat_id=7,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         alerts=[
             {"target_price": 3048.0, "direction": "below", "notes": "fade"},
             {"target_price": 3060.0, "direction": "above"},
@@ -545,15 +545,15 @@ def test_trade_store_replace_price_alert_grid_replaces_pending_alerts_atomically
     assert store.get_price_alert(untouched.id).status == AlertStatus.PENDING
     assert {(alert.instrument, alert.target_price) for alert in pending} == {
         ("EUR_USD", 1.11),
-        ("XAU_USD", 3048.0),
-        ("XAU_USD", 3060.0),
+        ("SPX500_USD", 3048.0),
+        ("SPX500_USD", 3060.0),
     }
 
 
 def test_trade_store_replace_price_alert_grid_preserves_existing_rows_on_validation_failure(store: TradeStore) -> None:
     original = store.upsert_price_alert(
         {
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "target_price": 3050.0,
             "direction": "above",
             "chat_id": 7,
@@ -564,7 +564,7 @@ def test_trade_store_replace_price_alert_grid_preserves_existing_rows_on_validat
     with pytest.raises(PersistenceWriteError):
         store.replace_price_alert_grid(
             chat_id=7,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             alerts=[{"target_price": -1.0, "direction": "below"}],
         )
 
@@ -582,7 +582,7 @@ def test_trade_store_lists_alert_history_with_filters(store: TradeStore) -> None
             alert_type="price",
             alert_id=11,
             chat_id=7,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             granularity=None,
             indicator=None,
             triggered_at=datetime(2026, 3, 22, 10, 5, tzinfo=timezone.utc),
@@ -607,7 +607,7 @@ def test_trade_store_lists_alert_history_with_filters(store: TradeStore) -> None
         )
     )
 
-    filtered = store.list_alert_history(chat_id=7, alert_type="price", instrument="XAU_USD", limit=10)
+    filtered = store.list_alert_history(chat_id=7, alert_type="price", instrument="SPX500_USD", limit=10)
 
     assert filtered == [first]
     assert store.list_alert_history(chat_id=8, limit=10) == [second]
@@ -642,7 +642,7 @@ def test_trade_store_strict_writes_raise_when_db_unavailable(store: TradeStore) 
         store.upsert_trade(
             TradeRecord(
                 trade_id="trade-1",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 units=1.0,
                 open_price=3020.5,
                 close_price=None,
@@ -677,7 +677,7 @@ def test_trade_store_strict_writes_raise_when_db_unavailable(store: TradeStore) 
     with pytest.raises(PersistenceWriteError):
         store.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 222,
@@ -720,7 +720,7 @@ def test_concurrent_alert_creation_produces_unique_ids(tmp_path: Path) -> None:
         def create_alert(index: int) -> int:
             return store.upsert_price_alert(
                 {
-                    "instrument": "XAU_USD",
+                    "instrument": "SPX500_USD",
                     "target_price": 3050.0 + index,
                     "direction": "above",
                     "chat_id": 1000 + index,

@@ -10,7 +10,7 @@ BASE_TRANSACTION = {
     "id": "1001",
     "accountID": "account-id",
     "type": "ORDER_FILL",
-    "instrument": "XAU_USD",
+    "instrument": "SPX500_USD",
     "orderID": "5001",
     "batchID": "6001",
     "reason": "MARKET_ORDER",
@@ -132,7 +132,7 @@ def test_daily_financing_affects_pnl_but_not_trade_rows() -> None:
         "type": "DAILY_FINANCING",
         "time": "2026-04-01T21:00:00Z",
         "positionFinancings": [
-            {"instrument": "XAU_USD", "financing": "-1.20"},
+            {"instrument": "SPX500_USD", "financing": "-1.20"},
             {"instrument": "EUR_USD", "financing": "0.15"},
         ],
     }
@@ -140,7 +140,7 @@ def test_daily_financing_affects_pnl_but_not_trade_rows() -> None:
     events = normalize_transaction(transaction, journal_timezone="Asia/Singapore")
 
     assert all(isinstance(event, FinancingEvent) for event in events)
-    assert [event.instrument for event in events] == ["XAU_USD", "EUR_USD"]
+    assert [event.instrument for event in events] == ["SPX500_USD", "EUR_USD"]
     assert sum(event.financing for event in events) == Decimal("-1.05")
 
 

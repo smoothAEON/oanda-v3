@@ -1,2 +1,2 @@
-"""Unit tests for Gold Signal Bot V3."""
+"""Unit tests for Market Signal Bot V3."""
 

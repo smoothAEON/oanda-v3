@@ -299,16 +299,16 @@ def test_scan_orchestrator_closed_market_uses_cache_only_and_publishes_snapshots
         indicator_alert_engine=engine,
     )
 
-    status = orchestrator._run_scan(("XAU_USD",), run_kind="full")
+    status = orchestrator._run_scan(("SPX500_USD",), run_kind="full")
 
     assert status.skipped_reason is None
-    assert status.scanned_instruments == ("XAU_USD",)
+    assert status.scanned_instruments == ("SPX500_USD",)
     assert status.snapshots_published == 4
     assert provider.calls == 0
     assert provider.price_calls == 0
     assert provider.cached_calls == len(SCAN_TIMEFRAMES)
     assert engine.calls == []
-    assert all(orchestrator.market_state.get_snapshot("XAU_USD", tf) is not None for tf in SCAN_TIMEFRAMES)
+    assert all(orchestrator.market_state.get_snapshot("SPX500_USD", tf) is not None for tf in SCAN_TIMEFRAMES)
 
 
 def test_scan_orchestrator_force_bypasses_closed_market_cache_gate(tmp_path: Path) -> None:
@@ -319,10 +319,10 @@ def test_scan_orchestrator_force_bypasses_closed_market_cache_gate(tmp_path: Pat
         market_hours_service=ClosedMarketHours(),
     )
 
-    status = orchestrator._run_scan(("XAU_USD",), run_kind="full", force=True)
+    status = orchestrator._run_scan(("SPX500_USD",), run_kind="full", force=True)
 
     assert status.skipped_reason is None
-    assert status.scanned_instruments == ("XAU_USD",)
+    assert status.scanned_instruments == ("SPX500_USD",)
     assert status.forced_market_fetch is True
     assert provider.calls == len(SCAN_TIMEFRAMES)
     assert provider.cached_calls == 0
@@ -363,17 +363,17 @@ def test_refresh_snapshot_raises_when_freshness_provenance_is_missing(tmp_path: 
     orchestrator = make_orchestrator(tmp_path, provider=BrokenFreshnessProvider())
 
     with pytest.raises(RuntimeError, match="cannot infer provenance"):
-        orchestrator.refresh_snapshot("XAU_USD", "M15")
+        orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
 
 def test_refresh_snapshot_calls_indicator_engine_for_fresh_open_market_snapshot(tmp_path: Path) -> None:
     engine = StubIndicatorAlertEngine()
     orchestrator = make_orchestrator(tmp_path, indicator_alert_engine=engine)
 
-    snapshot = orchestrator.refresh_snapshot("XAU_USD", "M15")
+    snapshot = orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
     assert snapshot is not None
-    assert engine.calls == [("XAU_USD", "M15")]
+    assert engine.calls == [("SPX500_USD", "M15")]
 
 
 def test_scan_orchestrator_engine_exception_does_not_abort_snapshot(tmp_path: Path) -> None:
@@ -382,7 +382,7 @@ def test_scan_orchestrator_engine_exception_does_not_abort_snapshot(tmp_path: Pa
     orchestrator = make_orchestrator(tmp_path, indicator_alert_engine=engine)
 
     with structlog.testing.capture_logs() as logs:
-        snapshot = orchestrator.refresh_snapshot("XAU_USD", "M15")
+        snapshot = orchestrator.refresh_snapshot("SPX500_USD", "M15")
 
     assert snapshot is not None
     warning_events = [entry for entry in logs if entry.get("log_level") == "warning"]

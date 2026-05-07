@@ -139,7 +139,7 @@ def test_latest_quote_returns_cached_tick_and_respects_age() -> None:
     assert task.latest_quote("EUR_USD") == tick
     assert task.latest_quote("EUR_USD", max_age_seconds=60) == tick
     assert task.latest_quote("EUR_USD", max_age_seconds=0) is None
-    assert task.latest_quote("XAU_USD") is None
+    assert task.latest_quote("SPX500_USD") is None
 
 
 @pytest.mark.asyncio
@@ -187,7 +187,7 @@ def test_queue_coalescing_preserves_other_instruments() -> None:
     alerts = StubPriceAlertEngine()
     task = PriceStreamTask(StubStreamClient(), tracker, alerts, queue_maxsize=1)
     eur_tick = PriceTick(instrument="EUR_USD", bid=1.0, ask=1.1, time=BASE_TIME)
-    xau_tick = PriceTick(instrument="XAU_USD", bid=3000.0, ask=3000.2, time=BASE_TIME)
+    spx_tick = PriceTick(instrument="SPX500_USD", bid=3000.0, ask=3000.2, time=BASE_TIME)
     newer_eur_tick = PriceTick(
         instrument="EUR_USD",
         bid=1.0,
@@ -196,7 +196,7 @@ def test_queue_coalescing_preserves_other_instruments() -> None:
     )
 
     task._enqueue_latest("excursion", task.excursion_queue, eur_tick)
-    task._enqueue_latest("excursion", task.excursion_queue, xau_tick)
+    task._enqueue_latest("excursion", task.excursion_queue, spx_tick)
     task._enqueue_latest("excursion", task.excursion_queue, newer_eur_tick)
 
     queued = {
@@ -204,6 +204,6 @@ def test_queue_coalescing_preserves_other_instruments() -> None:
         task.excursion_queue.get_nowait(),
     }
 
-    assert queued == {"EUR_USD", "XAU_USD"}
+    assert queued == {"EUR_USD", "SPX500_USD"}
     assert task._queue_states["excursion"].latest_by_instrument["EUR_USD"].time == newer_eur_tick.time
-    assert task._queue_states["excursion"].latest_by_instrument["XAU_USD"].time == xau_tick.time
+    assert task._queue_states["excursion"].latest_by_instrument["SPX500_USD"].time == spx_tick.time

@@ -26,7 +26,7 @@ def write_env_file(path: Path, **overrides: str) -> Path:
         "DEFAULT_SWING_LENGTH": "10",
         "SCAN_INTERVAL_MINUTES": "5",
         "POLL_INTERVAL_SECONDS": "30",
-        "STREAM_INSTRUMENTS": "XAU_USD,EUR_USD,GBP_USD,USD_JPY",
+        "STREAM_INSTRUMENTS": "SPX500_USD,EUR_USD,GBP_USD,USD_JPY",
         "MAE_MFE_MIN_PIP_MOVE": "0.5",
         "ACCOUNT_CURRENCY": "USD",
         "CALENDAR_REFRESH_HOURS": "1",

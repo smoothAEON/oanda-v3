@@ -95,17 +95,17 @@ class TestScanCycleDeterminism:
 
         scan_orchestrator.scan_all()
 
-        # Capture v1 H1 snapshot for XAU_USD
-        v1_snapshot = market_state.get_snapshot_version("XAU_USD", "H1", version=1)
-        assert v1_snapshot is not None, "v1 snapshot for XAU_USD H1 not found"
+        # Capture v1 H1 snapshot for SPX500_USD
+        v1_snapshot = market_state.get_snapshot_version("SPX500_USD", "H1", version=1)
+        assert v1_snapshot is not None, "v1 snapshot for SPX500_USD H1 not found"
 
         # Run again — patch cache freshness to avoid stale-append failures on weekends
         with _FRESH_CACHE_PATCH:
             scan_orchestrator.scan_all()
 
-        # Capture v2 H1 snapshot for XAU_USD
-        v2_snapshot = market_state.get_snapshot_version("XAU_USD", "H1", version=2)
-        assert v2_snapshot is not None, "v2 snapshot for XAU_USD H1 not found"
+        # Capture v2 H1 snapshot for SPX500_USD
+        v2_snapshot = market_state.get_snapshot_version("SPX500_USD", "H1", version=2)
+        assert v2_snapshot is not None, "v2 snapshot for SPX500_USD H1 not found"
 
         # Compare indicator metric values using pytest.approx for float tolerance
         v1_metrics = v1_snapshot.indicators.metrics
@@ -346,7 +346,7 @@ class TestSecondScanCycleAfterRuntime:
         scan_orchestrator.scan_all()
 
         # Capture v1 references
-        v1_bundle = market_state.get_bundle("XAU_USD")
+        v1_bundle = market_state.get_bundle("SPX500_USD")
         assert v1_bundle is not None
         v1_members = dict(v1_bundle.members)
 
@@ -356,13 +356,13 @@ class TestSecondScanCycleAfterRuntime:
 
         # v2 snapshots should exist
         for timeframe in SCAN_TIMEFRAMES:
-            v2_snap = market_state.get_snapshot_version("XAU_USD", timeframe, version=2)
+            v2_snap = market_state.get_snapshot_version("SPX500_USD", timeframe, version=2)
             assert v2_snap is not None, (
-                f"Missing v2 snapshot for XAU_USD {timeframe}"
+                f"Missing v2 snapshot for SPX500_USD {timeframe}"
             )
 
         # Bundle should reference latest (v2) versions
-        v2_bundle = market_state.get_bundle("XAU_USD")
+        v2_bundle = market_state.get_bundle("SPX500_USD")
         assert v2_bundle is not None
         assert v2_bundle.bundle_version >= 2, (
             f"Expected bundle_version >= 2, got {v2_bundle.bundle_version}"
@@ -389,14 +389,14 @@ class TestConcurrentScanSafety:
     def test_concurrent_refresh_no_exceptions(
         self, scan_orchestrator: ScanOrchestrator, market_state: MarketStateStore
     ) -> None:
-        """Three threads refreshing XAU_USD simultaneously should not crash."""
+        """Three threads refreshing SPX500_USD simultaneously should not crash."""
 
         results: list[InstrumentBundle | None] = [None, None, None]
         exceptions: list[Exception | None] = [None, None, None]
 
         def _refresh(index: int) -> None:
             try:
-                results[index] = scan_orchestrator.refresh_instrument("XAU_USD")
+                results[index] = scan_orchestrator.refresh_instrument("SPX500_USD")
             except Exception as exc:
                 exceptions[index] = exc
 
@@ -414,15 +414,15 @@ class TestConcurrentScanSafety:
 
         # MarketStateStore should have consistent snapshot versions (no gaps)
         for timeframe in SCAN_TIMEFRAMES:
-            snapshot = market_state.get_snapshot("XAU_USD", timeframe)
+            snapshot = market_state.get_snapshot("SPX500_USD", timeframe)
             assert snapshot is not None, (
-                f"Missing snapshot for XAU_USD {timeframe} after concurrent refreshes"
+                f"Missing snapshot for SPX500_USD {timeframe} after concurrent refreshes"
             )
             # Versions should be sequential from 1..N with no gaps
             for v in range(1, snapshot.version + 1):
-                historical = market_state.get_snapshot_version("XAU_USD", timeframe, v)
+                historical = market_state.get_snapshot_version("SPX500_USD", timeframe, v)
                 assert historical is not None, (
-                    f"Gap in version history: XAU_USD {timeframe} v{v} missing"
+                    f"Gap in version history: SPX500_USD {timeframe} v{v} missing"
                 )
 
 
@@ -443,7 +443,7 @@ def test_tinydb_survives_unclean_shutdown(tmp_db_path) -> None:
     # Insert a trade record manually
     trade = TradeRecord(
         trade_id="crash_test_001",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=2000.0,
         state=TradeState.OPEN,
@@ -464,7 +464,7 @@ def test_tinydb_survives_unclean_shutdown(tmp_db_path) -> None:
 
     assert recovered is not None, "Trade record not recovered after crash"
     assert recovered.trade_id == "crash_test_001"
-    assert recovered.instrument == "XAU_USD"
+    assert recovered.instrument == "SPX500_USD"
     assert recovered.state == TradeState.OPEN
 
     # Re-validate via Pydantic

@@ -18,10 +18,10 @@ def test_parse_tradehistory_day_defaults() -> None:
 
 
 def test_parse_tradehistory_month_closed_instrument_page() -> None:
-    assert parse_tradehistory_args(["month", "closed", "XAU_USD", "2"]) == (
+    assert parse_tradehistory_args(["month", "closed", "SPX500_USD", "2"]) == (
         "month",
         "closed",
-        "XAU_USD",
+        "SPX500_USD",
         2,
     )
 

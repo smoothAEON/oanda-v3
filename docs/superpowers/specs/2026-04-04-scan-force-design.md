@@ -16,8 +16,8 @@ When the market is open, `force` is a no-op.
 
 ```text
 /scan force              — full scan, all instruments, bypass closed-market gate
-/scan xauusd force       — single instrument, same bypass
-/scan xauusd             — existing behaviour unchanged
+/scan spx500usd force       — single instrument, same bypass
+/scan spx500usd             — existing behaviour unchanged
 /scan                    — existing behaviour unchanged
 ```
 

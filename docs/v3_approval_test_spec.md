@@ -78,7 +78,7 @@ Source anchors: Sections 1.2, 1.5, 1.6, 1.9, 5.6-5.9, 7.1, 8, 9.
 - `tests/unit/test_indicator_layer.py`
   Must prove deterministic compact indicator publication, closed-bar-only behavior, and pandas-ta and TA-Lib outputs stay inside typed summary contracts.
 - `tests/unit/test_spread_filter.py`
-  Must prove per-instrument thresholds, spike detection, gold-specific handling, and unknown-instrument failure.
+  Must prove per-instrument thresholds, spike detection, instrument-specific handling, and unknown-instrument failure.
 - `tests/unit/test_chop_filter.py`
   Must prove ADX pass, caution, reject, unavailable-metric behavior, and repeatability.
 - `tests/unit/test_custom_detectors.py`

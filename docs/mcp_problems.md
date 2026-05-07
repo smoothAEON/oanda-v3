@@ -49,7 +49,7 @@ This means on a weekend cold start:
 
 `adapters.py:201` shows `get_historical_bars` simply calls `get_candles` with identical parameters and returns the result unchanged. There is no functional difference between the two tools.
 
-This wastes an LLM's tool selection budget and creates confusion about which tool to use. An LLM that discovers both tools via `goldsignal://tool-surface` may attempt both for the same request.
+This wastes an LLM's tool selection budget and creates confusion about which tool to use. An LLM that discovers both tools via `marketsignal://tool-surface` may attempt both for the same request.
 
 **What needs to happen:** Remove `get_historical_bars` from `TOOL_SPECS`. Document the removal in the capabilities resource. `get_ohlc` with `price_component="bid_ask"` is the genuine alternative for direct-fetch data; `get_candles` covers the cache path.
 
@@ -234,7 +234,7 @@ These are new tools or expansions to existing tools that would materially improv
 {
   "as_of": "2026-04-05T10:00:00Z",
   "instruments": {
-    "XAU_USD": {
+    "SPX500_USD": {
       "status": "ready",
       "last_scanned_at": "2026-04-05T08:15:00Z",
       "bundle_age_seconds": 6300,
@@ -297,7 +297,7 @@ This should always go direct to OANDA (not cache) since date-range requests are 
   "daily_pnl": 120.00,
   "usd_net_exposure_pips": 45.2,
   "positions_by_instrument": {
-    "XAU_USD": {"direction": "long", "units": 1, "unrealised_pnl": -22.50},
+    "SPX500_USD": {"direction": "long", "units": 1, "unrealised_pnl": -22.50},
     "EUR_USD": {"direction": "long", "units": 10000, "unrealised_pnl": -20.00}
   }
 }

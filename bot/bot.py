@@ -2266,8 +2266,8 @@ async def _create_default_indicator_alerts(
 
     sma_cross_timeframes = ("M15", "H1", "H4", "D")
     sma_cross_defaults = [
-        (IndicatorKind.SMA_CROSS, "cross_up", None, "SMA golden cross"),
-        (IndicatorKind.SMA_CROSS, "cross_down", None, "SMA death cross"),
+        (IndicatorKind.SMA_CROSS, "cross_up", None, "SMA bullish cross"),
+        (IndicatorKind.SMA_CROSS, "cross_down", None, "SMA bearish cross"),
     ]
     for instrument in SCAN_INSTRUMENTS:
         if persistence_error is not None:
@@ -2336,7 +2336,7 @@ async def _create_default_indicator_alerts(
     await update.effective_message.reply_text(
         f"Created {created_count} default indicator alerts.\n"
         "RSI 70/30, STOCH 80/20 on H1 per instrument.\n"
-        "SMA golden cross + death cross on M15/H1/H4/D per instrument.\n"
+        "SMA bullish cross + bearish cross on M15/H1/H4/D per instrument.\n"
         "Use /listindicators to view."
     )
 
@@ -2877,7 +2877,7 @@ def _build_help_text(is_admin: bool) -> str:
     """Build the expanded /help response."""
 
     sections = [
-        "Gold Signal Bot V3",
+        "Market Signal Bot V3",
         "",
         "Auth:",
         "  /start <password> - Authenticate",

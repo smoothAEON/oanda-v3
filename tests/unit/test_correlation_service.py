@@ -64,15 +64,15 @@ async def test_correlation_service_aligns_mixed_sources() -> None:
         settings=SimpleNamespace(),
     )
 
-    result = await service.get_correlation("XAU_USD", "SPY", lookback=3)
+    result = await service.get_correlation("SPX500_USD", "SPY", lookback=3)
 
-    assert result.primary == "XAU_USD"
+    assert result.primary == "SPX500_USD"
     assert result.secondary == "SPY"
     assert result.primary_source == "oanda"
     assert result.secondary_source == "yfinance"
     assert result.aligned_observations == 3
     assert result.correlation == pytest.approx(1.0)
-    assert account_client.calls == [("XAU_USD", "D", 4)]
+    assert account_client.calls == [("SPX500_USD", "D", 4)]
     assert yfinance_service.calls[0][0] == "SPY"
     assert yfinance_service.calls[0][2] == "1d"
 
@@ -85,7 +85,7 @@ async def test_correlation_service_supports_inverse_secondary_transform() -> Non
         settings=SimpleNamespace(),
     )
 
-    result = await service.get_correlation("XAU_USD", "SPY", lookback=3, secondary_transform="inverse")
+    result = await service.get_correlation("SPX500_USD", "SPY", lookback=3, secondary_transform="inverse")
 
     assert result.secondary_transform == "inverse"
     assert result.correlation == pytest.approx(-1.0)

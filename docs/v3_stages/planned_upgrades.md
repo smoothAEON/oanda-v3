@@ -664,7 +664,7 @@ Single-chart analysis is often incomplete. Many FX and metals trades are downstr
 - Yield and real-yield relationship mapping
 - VIX and equity risk-sentiment relationship mapping
 - Crude sensitivity mapping where relevant
-- Gold and silver ratio context
+- Index, metals, and energy context
 - Copper and growth-sensitivity context
 - Rate-spread context for FX pairs
 
@@ -688,7 +688,7 @@ Single-chart analysis is often incomplete. Many FX and metals trades are downstr
 
 - Is this move aligned with the usual macro drivers?
 - Are yields, DXY, and risk sentiment confirming or contradicting the setup?
-- Is gold moving on USD weakness, real yields, risk aversion, or something else?
+- Is SPX500_USD moving on USD weakness, real yields, risk aversion, or something else?
 - Which cross-market relationships matter most for this instrument right now?
 
 #### Dependencies
@@ -1089,7 +1089,7 @@ Hard truth:
 Use a split stack:
 
 - FRED API for yields, rate spreads, and macro series
-- `yfinance` for VIX, DXY proxy, SPY and QQQ proxies, crude proxies, copper proxies, and gold and silver futures proxies
+- `yfinance` for VIX, DXY proxy, SPY and QQQ proxies, crude proxies, copper proxies, and index or metals futures proxies
 
 Verdict:
 

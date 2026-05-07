@@ -1,8 +1,8 @@
-# Gold Signal Bot V3
+# Market Signal Bot V3
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) ![OANDA](https://img.shields.io/badge/OANDA-read--only-green.svg) ![Telegram](https://img.shields.io/badge/Telegram-bot-blue.svg) ![FastMCP](https://img.shields.io/badge/MCP-streamable--http-orange.svg) ![Pytest](https://img.shields.io/badge/tests-unit%2Fintegration%2Flive-lightgrey.svg)
 
-Gold Signal Bot V3 is a Python 3.10+ read-only market analysis and trading operations platform built around an OANDA account. It runs as a Telegram bot, can optionally expose the same live runtime over an embedded FastMCP HTTP server, and combines scheduled multi-timeframe analysis, live pricing, account visibility, trade journaling, alerting, chart rendering, and bounded research helpers.
+Market Signal Bot V3 is a Python 3.10+ read-only market analysis and trading operations platform built around an OANDA account. It runs as a Telegram bot, can optionally expose the same live runtime over an embedded FastMCP HTTP server, and combines scheduled multi-timeframe analysis, live pricing, account visibility, trade journaling, alerting, chart rendering, and bounded research helpers.
 
 This repository does **not** place trades. `providers/oanda_execution.py` is an explicit stub reserved for a future execution layer and is intentionally kept out of the production runtime.
 
@@ -391,7 +391,7 @@ That means commands like `/price`, `/pricealert`, and `/extractor` can operate o
 
 Common aliases and flexible formats are normalized before validation:
 
-- `gold` -> `XAU_USD`
+- `spx500usd` -> `SPX500_USD`
 - `silver` -> `XAG_USD`
 - `oil` -> `WTICO_USD`
 - `EUR/USD`, `eur-usd`, `eur usd`, `eurusd` -> `EUR_USD`
@@ -686,7 +686,7 @@ Default indicator seeding creates:
 
 - `RSI` 70 and 30 on `H1`
 - `STOCH` 80 and 20 on `H1`
-- `SMA_CROSS` golden and death cross alerts on `M15`, `H1`, `H4`, and `D`
+- `SMA_CROSS` bullish and bearish cross alerts on `M15`, `H1`, `H4`, and `D`
 
 #### Time Alerts
 
@@ -724,10 +724,10 @@ The MCP app shares the same live runtime as Telegram. It reads and writes the sa
 
 The MCP server publishes four JSON resources:
 
-- `goldsignal://capabilities`
-- `goldsignal://supported-instruments`
-- `goldsignal://alert-defaults`
-- `goldsignal://tool-surface`
+- `marketsignal://capabilities`
+- `marketsignal://supported-instruments`
+- `marketsignal://alert-defaults`
+- `marketsignal://tool-surface`
 
 ### Tool Families
 

@@ -43,7 +43,7 @@ Add the signal-quality gates and custom pattern detectors that sit beside the SM
 ## Tests And Approval Evidence
 
 - `tests/unit/test_spread_filter.py`
-  Must prove per-instrument thresholds, spike detection, gold-specific handling, and unknown-instrument failure.
+  Must prove per-instrument thresholds, spike detection, instrument-specific handling, and unknown-instrument failure.
 - `tests/unit/test_chop_filter.py`
   Must prove ADX pass, caution, reject, unavailable-metric behavior, and repeatability.
 - `tests/unit/test_custom_detectors.py`

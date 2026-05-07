@@ -1,2 +1,2 @@
-"""Data support package for Gold Signal Bot V3."""
+"""Data support package for Market Signal Bot V3."""
 

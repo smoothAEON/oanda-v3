@@ -328,7 +328,7 @@ def test_format_calendar_output_truncation_adds_notice_when_long() -> None:
 def test_format_journal_list_includes_account_currency_pnl_for_closed_trades() -> None:
     trade = TradeRecord(
         trade_id="trade-1",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=3000.0,
         close_price=3004.2,
@@ -392,7 +392,7 @@ def test_format_journal_detail_prefers_trade_account_currency() -> None:
 def test_format_maemfe_list_includes_current_price_when_available() -> None:
     trade = TradeRecord(
         trade_id="trade-3",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=3000.0,
         close_price=None,
@@ -418,7 +418,7 @@ def test_format_maemfe_list_includes_current_price_when_available() -> None:
     )
 
     assert "current=3005.25000" in output
-    assert "P/L: +525.0 pips" in output
+    assert "P/L: +5.2 pips" in output
     assert "MAE: -12.0 pips" in output
     assert "MFE: +30.0 pips" in output
 
@@ -426,7 +426,7 @@ def test_format_maemfe_list_includes_current_price_when_available() -> None:
 def test_format_trade_history_page_adds_summary_headline_and_navigation() -> None:
     summary = RealizedPnLSummary(
         period="custom:2026-04-01:2026-04-01",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         start_utc=datetime(2026, 3, 31, 16, 0, tzinfo=UTC),
         end_utc=datetime(2026, 4, 1, 15, 59, 59, tzinfo=UTC),
         start_local=datetime(2026, 4, 1, 0, 0, tzinfo=SGT),
@@ -439,7 +439,7 @@ def test_format_trade_history_page_adds_summary_headline_and_navigation() -> Non
     page = TradeHistoryPage(
         period=summary.period,
         view="all",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         window_start_utc=summary.start_utc,
         window_end_utc=summary.end_utc + timedelta(microseconds=1),
         window_start_local=summary.start_local,
@@ -452,7 +452,7 @@ def test_format_trade_history_page_adds_summary_headline_and_navigation() -> Non
                 batch_id="500",
                 event_type="CLOSE",
                 account_id="account-id",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 trade_id="trade-1",
                 order_id="9001",
                 units=Decimal("-40"),
@@ -479,4 +479,4 @@ def test_format_trade_history_page_adds_summary_headline_and_navigation() -> Non
     output = format_trade_history_page(page)
 
     assert "P&L (2026-04-01): +12.20" in output
-    assert "Next: /tradehistory custom:2026-04-01:2026-04-01 all XAU_USD 2" in output
+    assert "Next: /tradehistory custom:2026-04-01:2026-04-01 all SPX500_USD 2" in output

@@ -67,7 +67,7 @@ Chart notes:
 - valid count range is `2..5000`
 - default style comes from `/config chart`
 - default mode comes from `/config chart_mode`
-- `/chart XAU_USD H1 full 300` is a valid positional example
+- `/chart SPX500_USD H1 full 300` is a valid positional example
 - `compact` renders `orderblocks`, `positions`
 - `balanced` renders `orderblocks`, `positions`, `orders`, `sl`, `tp`, `gslo`, `pricealerts`
 - `full` renders all supported runtime overlays, including structure, liquidity, orders, price alerts, and indicators
@@ -86,7 +86,7 @@ Chart notes:
 
 - `period`: `day`, `week`, `month`, `today`, `thisweek`, `thismonth`, or `custom:YYYY-MM-DD:YYYY-MM-DD`
 - `view`: `all`, `opened`, or `closed`
-- `instrument`: exact OANDA instrument such as `XAU_USD`
+- `instrument`: exact OANDA instrument such as `SPX500_USD`
 - `page`: positive integer, default `1`
 - defaults are `day`, `all`, no instrument filter, and page `1`
 - realized PnL windows are resolved in `JOURNAL_TIMEZONE` and queried against OANDA transaction history
@@ -120,7 +120,7 @@ Indicator alert notes:
 - default seeding currently creates:
   - `RSI` 70 and 30 on `H1`
   - `STOCH` 80 and 20 on `H1`
-  - `SMA_CROSS` golden and death cross alerts on `M15`, `H1`, `H4`, and `D`
+  - `SMA_CROSS` bullish and bearish cross alerts on `M15`, `H1`, `H4`, and `D`
 - list and clear operations are scoped to the authenticated chat that owns the alert
 
 Current alert-runtime behavior:

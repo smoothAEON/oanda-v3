@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo Summary
 
-Gold Signal Bot V3 is a Python Telegram bot for read-only OANDA market analysis and account monitoring. It does not place trades. `providers/oanda_execution.py` is a reserved stub only.
+Market Signal Bot V3 is a Python Telegram bot for read-only OANDA market analysis and account monitoring. It does not place trades. `providers/oanda_execution.py` is a reserved stub only.
 
 Current shipped behavior: multi-timeframe scan pipeline (M15/H1/H4/D), SMC summaries, TA-Lib/pandas-ta indicators, raw spread evidence, LLM-first MCP context packs, Telegram bot with auth/account/analysis/chart/journal/alert commands, trade journaling with MAE/MFE, price and indicator alert evaluation with Telegram push delivery, trade-open and trade-close push delivery, CSV candle cache with TinyDB metadata.
 

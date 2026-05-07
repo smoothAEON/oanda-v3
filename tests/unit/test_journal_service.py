@@ -22,7 +22,7 @@ def test_journal_service_writes_open_modify_and_close_events(tmp_path: Path) -> 
         opened = service.handle_trade_opened(
             TradeOpenedEvent(
                 trade_id="trade-1",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 units=1.0,
                 open_price=3020.50,
                 sl=3010.00,
@@ -42,7 +42,7 @@ def test_journal_service_writes_open_modify_and_close_events(tmp_path: Path) -> 
         closed = service.handle_trade_closed(
             TradeClosedEvent(
                 trade_id="trade-1",
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 units=1.0,
                 open_price=3020.50,
                 close_price=3040.50,
@@ -58,7 +58,7 @@ def test_journal_service_writes_open_modify_and_close_events(tmp_path: Path) -> 
         assert modified.sl_price == 3012.00
         assert closed is not None
         assert closed.state == "CLOSED"
-        assert closed.pips == 2000.0
+        assert closed.pips == 20.0
         assert closed.account_pnl == 20.0
         assert closed.account_currency == "SGD"
         assert closed.instrument_pnl_currency == "SGD"

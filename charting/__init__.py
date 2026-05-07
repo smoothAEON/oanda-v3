@@ -1,4 +1,4 @@
-"""Charting package for Gold Signal Bot V3."""
+"""Charting package for Market Signal Bot V3."""
 
 from charting.renderer import (
     ChartArtifact,

@@ -330,7 +330,7 @@ def test_neutral_placeholder_models_are_valid() -> None:
 def test_trade_record_closed_contract_is_frozen_and_computes_direction() -> None:
     trade = TradeRecord(
         trade_id="12345678",
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         units=1.0,
         open_price=2341.50,
         close_price=2383.50,
@@ -437,7 +437,7 @@ def test_pending_order_contract_is_typed_and_directional() -> None:
 def test_price_and_indicator_alert_contracts_validate_status_and_threshold_rules() -> None:
     alert = PriceAlert(
         id=7,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         target_price=2350.50,
         direction="above",
         status=AlertStatus.FIRED,
@@ -448,7 +448,7 @@ def test_price_and_indicator_alert_contracts_validate_status_and_threshold_rules
     )
     indicator = IndicatorAlert(
         id=12,
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         granularity="M30",
         indicator=IndicatorKind.RSI,
         condition="below",
@@ -467,7 +467,7 @@ def test_price_and_indicator_alert_contracts_validate_status_and_threshold_rules
     with pytest.raises(ValidationError):
         PriceAlert(
             id=7,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             target_price=2350.50,
             direction="above",
             status=AlertStatus.PENDING,
@@ -479,7 +479,7 @@ def test_price_and_indicator_alert_contracts_validate_status_and_threshold_rules
     with pytest.raises(ValidationError):
         IndicatorAlert(
             id=12,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             granularity="M30",
             indicator=IndicatorKind.MACD,
             condition="cross_up",
@@ -581,7 +581,7 @@ def test_runtime_config_record_accepts_stage16_values() -> None:
     with pytest.raises(ValidationError):
         IndicatorAlert(
             id=12,
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             granularity="M30",
             indicator=IndicatorKind.STOCH,
             condition="above",

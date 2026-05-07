@@ -29,8 +29,8 @@ def build_trade(
         trade_id=trade_id,
         instrument=instrument,
         units=1.0,
-        open_price=3000.0 if instrument == "XAU_USD" else 1.1000,
-        close_price=3010.0 if instrument == "XAU_USD" else 1.1020,
+        open_price=3000.0 if instrument == "SPX500_USD" else 1.1000,
+        close_price=3010.0 if instrument == "SPX500_USD" else 1.1020,
         sl_price=sl_price,
         tp_price=None,
         gslo_price=None,
@@ -99,21 +99,21 @@ def test_trade_stats_service_builds_summary_and_per_instrument_breakdown() -> No
     )
     trades = [
         build_trade(
-            trade_id="xau-win",
-            instrument="XAU_USD",
+            trade_id="spx-win",
+            instrument="SPX500_USD",
             account_pnl=10.0,
             instrument_pnl=12.0,
-            pips=200.0,
+            pips=2.0,
             sl_price=2990.0,
             opened_at=BASE_TIME,
             closed_at=BASE_TIME.replace(hour=1),
         ),
         build_trade(
-            trade_id="xau-loss",
-            instrument="XAU_USD",
+            trade_id="spx-loss",
+            instrument="SPX500_USD",
             account_pnl=-5.0,
             instrument_pnl=-4.0,
-            pips=-50.0,
+            pips=-0.5,
             sl_price=2995.0,
             opened_at=BASE_TIME.replace(hour=2),
             closed_at=BASE_TIME.replace(hour=3),
@@ -134,8 +134,8 @@ def test_trade_stats_service_builds_summary_and_per_instrument_breakdown() -> No
         trade_repository=StubTradeRepository(trades),
         excursion_repository=StubExcursionRepository(
             {
-                "xau-win": {"mae_pips": 8.0, "mfe_pips": 25.0},
-                "xau-loss": {"mae_pips": 12.0, "mfe_pips": 3.0},
+                "spx-win": {"mae_pips": 8.0, "mfe_pips": 25.0},
+                "spx-loss": {"mae_pips": 12.0, "mfe_pips": 3.0},
                 "eur-flat": None,
             }
         ),
@@ -164,13 +164,13 @@ def test_trade_stats_service_builds_summary_and_per_instrument_breakdown() -> No
     assert report.summary.mae_sampled_trade_count == 2
     assert report.summary.avg_mae_pips == pytest.approx(10.0)
     assert report.summary.max_drawdown == Decimal("5.0")
-    assert [item.instrument for item in report.per_instrument] == ["EUR_USD", "XAU_USD"]
-    xau = next(item for item in report.per_instrument if item.instrument == "XAU_USD")
+    assert [item.instrument for item in report.per_instrument] == ["EUR_USD", "SPX500_USD"]
+    spx = next(item for item in report.per_instrument if item.instrument == "SPX500_USD")
     eur = next(item for item in report.per_instrument if item.instrument == "EUR_USD")
-    assert xau.trade_count == 2
-    assert xau.net_realized_pl == Decimal("5.0")
-    assert xau.gross_realized_pl == Decimal("8.0")
-    assert xau.avg_mae_pips == pytest.approx(10.0)
+    assert spx.trade_count == 2
+    assert spx.net_realized_pl == Decimal("5.0")
+    assert spx.gross_realized_pl == Decimal("8.0")
+    assert spx.avg_mae_pips == pytest.approx(10.0)
     assert eur.trade_count == 1
     assert eur.avg_mae_pips is None
     assert eur.rr_eligible_count == 0

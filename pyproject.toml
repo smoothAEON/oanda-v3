@@ -3,12 +3,12 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gold-signal-bot-v3"
+name = "market-signal-bot-v3"
 version = "0.1.0"
-description = "Bootstrap baseline for the Gold Signal Bot V3 rewrite."
+description = "Bootstrap baseline for the Market Signal Bot V3 rewrite."
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Gold Signal Bot V3" }]
+authors = [{ name = "Market Signal Bot V3" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",

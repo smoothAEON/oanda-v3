@@ -347,13 +347,13 @@ def test_load_settings_normalizes_stream_instruments_and_account_currency(
     clear_settings_env(monkeypatch)
     env_file = write_env_file(
         tmp_path / ".env",
-        STREAM_INSTRUMENTS="gold, eurusd, EUR_USD, gbpjpy",
+        STREAM_INSTRUMENTS="spx500usd, eurusd, EUR_USD, gbpjpy",
         ACCOUNT_CURRENCY="usd",
     )
 
     settings = load_settings(env_file=env_file)
 
-    assert settings.stream_instruments == ("XAU_USD", "EUR_USD", "GBP_JPY")
+    assert settings.stream_instruments == ("SPX500_USD", "EUR_USD", "GBP_JPY")
     assert settings.account_currency == "USD"
 
 

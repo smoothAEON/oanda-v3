@@ -176,7 +176,7 @@ def build_renderer(**kwargs):
 
 def build_request(**overrides):
     base_payload = {
-        "instrument": "gold",
+        "instrument": "spx500usd",
         "timeframe": "h1",
         "count": 500,
     }
@@ -337,7 +337,7 @@ def get_renderer_method(renderer, names):
 def test_chart_request_validates_required_contract_and_defaults(tmp_path: Path) -> None:
     request = build_request()
 
-    assert request.instrument == "XAU_USD"
+    assert request.instrument == "SPX500_USD"
     assert request.timeframe == "H1"
     assert request.count == 500
 
@@ -527,7 +527,7 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
             call_log.append("list_open")
             return [
                 build_trade(instrument="EUR_USD"),
-                build_trade(trade_id="other", instrument="XAU_USD"),
+                build_trade(trade_id="other", instrument="SPX500_USD"),
             ]
 
     class FakeAlertRepository:
@@ -535,7 +535,7 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
             call_log.append("list_pending_price_alerts")
             return [
                 build_alert(instrument="EUR_USD", target_price=101.5),
-                build_alert(id=2, instrument="XAU_USD", target_price=2500.0),
+                build_alert(id=2, instrument="SPX500_USD", target_price=2500.0),
             ]
 
     class FakeAccountClient:
@@ -543,7 +543,7 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
             call_log.append("get_open_orders")
             return [
                 build_pending_order("EUR_USD"),
-                build_pending_order("XAU_USD"),
+                build_pending_order("SPX500_USD"),
             ]
 
     class FakeScanOrchestrator:
@@ -593,7 +593,7 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
     assert any(str(item).startswith("orderblock:EUR_USD:") for item in omitted)
     assert any(str(item).startswith("position:EUR_USD:trade-1:") for item in omitted)
     assert any(str(item).startswith("order:EUR_USD:order-1:") for item in omitted)
-    assert all("XAU_USD" not in str(item) for item in omitted)
+    assert all("SPX500_USD" not in str(item) for item in omitted)
 
     first_order_block = order_blocks[0] if isinstance(order_blocks, (list, tuple)) else order_blocks
     anchor_time = get_first_present(
@@ -659,7 +659,7 @@ def test_renderer_preserves_bullish_and_bearish_order_blocks_in_same_payload(tmp
 
 def test_renderer_returns_artifact_handle_and_cleans_up_on_close(tmp_path: Path, monkeypatch) -> None:
     candles = build_candles(closes=[100.0, 100.25, 100.50, 100.75, 101.0])
-    snapshot = build_snapshot(instrument="XAU_USD")
+    snapshot = build_snapshot(instrument="SPX500_USD")
     market_state = MarketStateStore()
     market_state.publish_snapshot(snapshot)
 
@@ -738,7 +738,7 @@ def test_renderer_returns_artifact_handle_and_cleans_up_on_close(tmp_path: Path,
 
 def test_renderer_failure_does_not_poison_follow_up_render(tmp_path: Path, monkeypatch) -> None:
     candles = build_candles(closes=[100.0, 100.25, 100.50, 100.75, 101.0])
-    snapshot = build_snapshot(instrument="XAU_USD")
+    snapshot = build_snapshot(instrument="SPX500_USD")
     market_state = MarketStateStore()
     market_state.publish_snapshot(snapshot)
 

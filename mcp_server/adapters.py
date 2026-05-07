@@ -1,4 +1,4 @@
-"""Shared MCP adapters over the live Gold Signal Bot runtime."""
+"""Shared MCP adapters over the live Market Signal Bot runtime."""
 
 from __future__ import annotations
 
@@ -817,7 +817,7 @@ class BotMcpService:
 
         for instrument_symbol in SCAN_INSTRUMENTS:
             for timeframe_name in EVALUATED_INDICATOR_ALERT_TIMEFRAMES:
-                for condition, note in (("cross_up", "SMA golden cross"), ("cross_down", "SMA death cross")):
+                for condition, note in (("cross_up", "SMA bullish cross"), ("cross_down", "SMA bearish cross")):
                     key = (instrument_symbol, timeframe_name, IndicatorKind.SMA_CROSS, condition, None)
                     if key in existing_keys:
                         continue
@@ -1100,7 +1100,7 @@ class BotMcpService:
     @staticmethod
     def capabilities_payload() -> dict[str, Any]:
         return {
-            "name": "gold-signal-bot-v3-mcp",
+            "name": "market-signal-bot-v3-mcp",
             "transport": "streamable-http",
             "raw_oanda_candle_granularities": list(OANDA_CANDLE_GRANULARITIES),
             "raw_oanda_candle_max_count": OANDA_MAX_CANDLE_COUNT,

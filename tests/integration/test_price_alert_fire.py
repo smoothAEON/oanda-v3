@@ -33,7 +33,7 @@ def test_price_alert_fire_transitions_to_fired_state(tmp_path: Path) -> None:
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 123,
@@ -43,7 +43,7 @@ def test_price_alert_fire_transitions_to_fired_state(tmp_path: Path) -> None:
 
         armed = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -51,7 +51,7 @@ def test_price_alert_fire_transitions_to_fired_state(tmp_path: Path) -> None:
         )
         fired = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -78,7 +78,7 @@ def test_price_alert_fire_dispatches_notification_when_notifier_wired(tmp_path: 
     try:
         alert = repository.upsert_price_alert(
             {
-                "instrument": "XAU_USD",
+                "instrument": "SPX500_USD",
                 "target_price": 3050.0,
                 "direction": "above",
                 "chat_id": 456,
@@ -88,7 +88,7 @@ def test_price_alert_fire_dispatches_notification_when_notifier_wired(tmp_path: 
 
         armed = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.7,
                 ask=3049.9,
                 time=BASE_TIME,
@@ -96,7 +96,7 @@ def test_price_alert_fire_dispatches_notification_when_notifier_wired(tmp_path: 
         )
         fired = engine.evaluate_tick(
             PriceTick(
-                instrument="XAU_USD",
+                instrument="SPX500_USD",
                 bid=3049.8,
                 ask=3050.1,
                 time=BASE_TIME,
@@ -105,6 +105,6 @@ def test_price_alert_fire_dispatches_notification_when_notifier_wired(tmp_path: 
 
         assert armed == []
         assert [item.alert.id for item in fired] == [alert.id]
-        assert notifier.messages == [(456, "XAU_USD fired at 3050.1000")]
+        assert notifier.messages == [(456, "SPX500_USD fired at 3050.1000")]
     finally:
         store.close()

@@ -92,7 +92,7 @@ def sample_transactions() -> list[dict[str, object]]:
             "id": "101",
             "accountID": "account-id",
             "type": "ORDER_FILL",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "orderID": "5001",
             "batchID": "6001",
             "reason": "MARKET_ORDER",
@@ -106,7 +106,7 @@ def sample_transactions() -> list[dict[str, object]]:
             "id": "102",
             "accountID": "account-id",
             "type": "ORDER_FILL",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "orderID": "5002",
             "batchID": "6002",
             "reason": "TAKE_PROFIT_ORDER",
@@ -128,7 +128,7 @@ def sample_transactions() -> list[dict[str, object]]:
             "id": "103",
             "accountID": "account-id",
             "type": "ORDER_FILL",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "orderID": "5003",
             "batchID": "6003",
             "reason": "MARKET_ORDER",
@@ -150,7 +150,7 @@ def sample_transactions() -> list[dict[str, object]]:
             "type": "DAILY_FINANCING",
             "time": "2026-04-01T04:00:00Z",
             "positionFinancings": [
-                {"instrument": "XAU_USD", "financing": "-0.25"},
+                {"instrument": "SPX500_USD", "financing": "-0.25"},
                 {"instrument": "EUR_USD", "financing": "0.10"},
             ],
         },
@@ -169,7 +169,7 @@ def sample_mit_transactions() -> list[dict[str, object]]:
             "id": "401",
             "accountID": "account-id",
             "type": "ORDER_FILL",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "orderID": "5401",
             "batchID": "6401",
             "reason": "MARKET_ORDER",
@@ -183,7 +183,7 @@ def sample_mit_transactions() -> list[dict[str, object]]:
             "id": "402",
             "accountID": "account-id",
             "type": "ORDER_FILL",
-            "instrument": "XAU_USD",
+            "instrument": "SPX500_USD",
             "orderID": "5402",
             "batchID": "6402",
             "reason": "MARKET_ORDER",
@@ -233,7 +233,7 @@ def test_compute_realized_pnl_uses_decimal_and_instrument_specific_financing(tmp
     try:
         seed_normalized_history(store, settings, sample_transactions())
 
-        summary = service.compute_realized_pnl("custom:2026-04-01:2026-04-01", instrument="XAU_USD")
+        summary = service.compute_realized_pnl("custom:2026-04-01:2026-04-01", instrument="SPX500_USD")
 
         assert str(summary.gross_realized_pl) == "7.00"
         assert str(summary.financing) == "-0.40"
@@ -254,7 +254,7 @@ def test_get_trade_history_filters_rows_and_paginates(tmp_path: Path) -> None:
                     "id": str(200 + index),
                     "accountID": "account-id",
                     "type": "ORDER_FILL",
-                    "instrument": "XAU_USD",
+                    "instrument": "SPX500_USD",
                     "orderID": str(7000 + index),
                     "batchID": str(8000 + index),
                     "reason": "MARKET_ORDER",
@@ -275,8 +275,8 @@ def test_get_trade_history_filters_rows_and_paginates(tmp_path: Path) -> None:
         )
         history_client.since_transactions = []
 
-        page = service.get_trade_history("custom:2026-04-01:2026-04-01", "closed", "XAU_USD", 1)
-        opened_page = service.get_trade_history("custom:2026-04-01:2026-04-01", "opened", "XAU_USD", 2)
+        page = service.get_trade_history("custom:2026-04-01:2026-04-01", "closed", "SPX500_USD", 1)
+        opened_page = service.get_trade_history("custom:2026-04-01:2026-04-01", "opened", "SPX500_USD", 2)
 
         assert [row.event_type for row in page.rows] == ["PARTIAL_CLOSE", "CLOSE"]
         assert page.page_date_local == date(2026, 4, 1)
@@ -432,7 +432,7 @@ def test_get_trade_history_serves_stale_store_data_when_sync_fails(tmp_path: Pat
             raise RuntimeError("network down")
 
         history_client.fetch_transactions_since_sync = failing_since  # type: ignore[assignment]
-        page = service.get_trade_history("custom:2026-04-01:2026-04-01", "all", "XAU_USD", 1)
+        page = service.get_trade_history("custom:2026-04-01:2026-04-01", "all", "SPX500_USD", 1)
 
         assert page.stale_warning is not None
         assert "stored trade-history data" in page.stale_warning
@@ -471,7 +471,7 @@ def test_trade_history_date_range_override_uses_custom_period_selector(tmp_path:
         page = service.get_trade_history(
             "day",
             "all",
-            "XAU_USD",
+            "SPX500_USD",
             1,
             start_date="2026-04-01",
             end_date="2026-04-01",

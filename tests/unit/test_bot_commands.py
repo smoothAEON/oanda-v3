@@ -232,7 +232,7 @@ class FakeTradeHistoryService:
                     batch_id="500",
                     event_type="CLOSE",
                     account_id="account-id",
-                    instrument=instrument or "XAU_USD",
+                    instrument=instrument or "SPX500_USD",
                     trade_id="trade-1",
                     order_id="9001",
                     units=Decimal("-40"),
@@ -322,7 +322,7 @@ def test_trade_poller_health_is_failed_when_scheduler_job_is_missing() -> None:
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ("gold", "XAU_USD"),
+        ("spx500usd", "SPX500_USD"),
         ("EUR/USD", "EUR_USD"),
         ("usd jpy", "USD_JPY"),
     ],
@@ -362,13 +362,13 @@ def test_normalize_command_timeframe_rejects_weekly_aliases(value: str) -> None:
 @pytest.mark.parametrize(
     ("args", "default_mode", "expected_timeframe", "expected_mode", "expected_count"),
     [
-        (["gold"], ChartMode.COMPACT, "H1", ChartMode.COMPACT, 500),
-        (["gold", "4h"], ChartMode.BALANCED, "H4", ChartMode.BALANCED, 500),
-        (["gold", "full"], ChartMode.COMPACT, "H1", ChartMode.FULL, 500),
-        (["gold", "4h", "full"], ChartMode.COMPACT, "H4", ChartMode.FULL, 500),
-        (["gold", "4h", "250"], ChartMode.BALANCED, "H4", ChartMode.BALANCED, 250),
-        (["gold", "4h", "full", "250"], ChartMode.COMPACT, "H4", ChartMode.FULL, 250),
-        (["gold", "4h", "250", "full"], ChartMode.COMPACT, "H4", ChartMode.FULL, 250),
+        (["spx500usd"], ChartMode.COMPACT, "H1", ChartMode.COMPACT, 500),
+        (["spx500usd", "4h"], ChartMode.BALANCED, "H4", ChartMode.BALANCED, 500),
+        (["spx500usd", "full"], ChartMode.COMPACT, "H1", ChartMode.FULL, 500),
+        (["spx500usd", "4h", "full"], ChartMode.COMPACT, "H4", ChartMode.FULL, 500),
+        (["spx500usd", "4h", "250"], ChartMode.BALANCED, "H4", ChartMode.BALANCED, 250),
+        (["spx500usd", "4h", "full", "250"], ChartMode.COMPACT, "H4", ChartMode.FULL, 250),
+        (["spx500usd", "4h", "250", "full"], ChartMode.COMPACT, "H4", ChartMode.FULL, 250),
     ],
 )
 def test_parse_chart_args_accepts_positional_mode_and_count(
@@ -384,7 +384,7 @@ def test_parse_chart_args_accepts_positional_mode_and_count(
         default_mode=default_mode,
     )
 
-    assert request.instrument == "XAU_USD"
+    assert request.instrument == "SPX500_USD"
     assert request.timeframe == expected_timeframe
     assert request.mode == expected_mode
     assert request.count == expected_count
@@ -393,7 +393,7 @@ def test_parse_chart_args_accepts_positional_mode_and_count(
 
 def test_parse_chart_args_full_mode_keeps_full_overlay_bundle() -> None:
     request = parse_chart_args(
-        ["gold", "1h", "full", "250"],
+        ["spx500usd", "1h", "full", "250"],
         default_style=ChartRenderStyle.CANDLESTICK,
     )
 
@@ -404,11 +404,11 @@ def test_parse_chart_args_full_mode_keeps_full_overlay_bundle() -> None:
 
 
 def test_parse_price_args_accepts_live_flag_and_rejects_multiple_symbols() -> None:
-    assert parse_price_args(["gold"]) == ("XAU_USD", False)
-    assert parse_price_args(["--live", "gold"]) == ("XAU_USD", True)
+    assert parse_price_args(["spx500usd"]) == ("SPX500_USD", False)
+    assert parse_price_args(["--live", "spx500usd"]) == ("SPX500_USD", True)
 
     with pytest.raises(ValueError, match="Usage: /price <symbol> \\[--live\\]"):
-        parse_price_args(["gold", "eurusd"])
+        parse_price_args(["spx500usd", "eurusd"])
 
 
 def test_parse_time_alert_args_supports_fixed_and_session_modes() -> None:
@@ -523,10 +523,10 @@ def test_parse_calendar_args_unknown_3letter_accepted_silently() -> None:
 
 def test_parse_indicator_alert_args_parses_threshold_and_note() -> None:
     instrument, timeframe, indicator, condition, threshold, note = parse_indicator_alert_args(
-        ["gold", "1h", "rsi", "above", "30", "trend", "watch"]
+        ["spx500usd", "1h", "rsi", "above", "30", "trend", "watch"]
     )
 
-    assert instrument == "XAU_USD"
+    assert instrument == "SPX500_USD"
     assert timeframe == "H1"
     assert indicator == IndicatorKind.RSI
     assert condition == "above"
@@ -536,10 +536,10 @@ def test_parse_indicator_alert_args_parses_threshold_and_note() -> None:
 
 def test_parse_vwap_args_parses_defaults_and_flags() -> None:
     instrument, timeframe, anchor, bands = parse_vwap_args(
-        ["gold", "4h", "--anchor", "weekly", "--bands", "2,1"]
+        ["spx500usd", "4h", "--anchor", "weekly", "--bands", "2,1"]
     )
 
-    assert instrument == "XAU_USD"
+    assert instrument == "SPX500_USD"
     assert timeframe == "H4"
     assert anchor == "W"
     assert bands == (1.0, 2.0)
@@ -547,25 +547,25 @@ def test_parse_vwap_args_parses_defaults_and_flags() -> None:
 
 def test_parse_vwap_args_rejects_unsupported_lower_timeframe() -> None:
     with pytest.raises(ValueError, match="VWAP timeframe"):
-        parse_vwap_args(["gold", "15m"])
+        parse_vwap_args(["spx500usd", "15m"])
 
 
 def test_parse_vwap_args_rejects_invalid_anchor() -> None:
     with pytest.raises(ValueError, match="anchor must be"):
-        parse_vwap_args(["gold", "--anchor", "quarterly"])
+        parse_vwap_args(["spx500usd", "--anchor", "quarterly"])
 
 
 @pytest.mark.parametrize(
     ("args", "expected"),
     [
-        (["gold"], ("XAU_USD", "H1", "all")),
-        (["gold", "4h"], ("XAU_USD", "H4", "all")),
-        (["gold", "mitigated"], ("XAU_USD", "H1", "mitigated")),
-        (["gold", "unmitigated"], ("XAU_USD", "H1", "unmitigated")),
-        (["gold", "miltigated"], ("XAU_USD", "H1", "mitigated")),
-        (["gold", "unmiltigated"], ("XAU_USD", "H1", "unmitigated")),
-        (["gold", "4h", "unmitigated"], ("XAU_USD", "H4", "unmitigated")),
-        (["gold", "mitigated", "4h"], ("XAU_USD", "H4", "mitigated")),
+        (["spx500usd"], ("SPX500_USD", "H1", "all")),
+        (["spx500usd", "4h"], ("SPX500_USD", "H4", "all")),
+        (["spx500usd", "mitigated"], ("SPX500_USD", "H1", "mitigated")),
+        (["spx500usd", "unmitigated"], ("SPX500_USD", "H1", "unmitigated")),
+        (["spx500usd", "miltigated"], ("SPX500_USD", "H1", "mitigated")),
+        (["spx500usd", "unmiltigated"], ("SPX500_USD", "H1", "unmitigated")),
+        (["spx500usd", "4h", "unmitigated"], ("SPX500_USD", "H4", "unmitigated")),
+        (["spx500usd", "mitigated", "4h"], ("SPX500_USD", "H4", "mitigated")),
     ],
 )
 def test_parse_order_block_args_accepts_status_filter_and_timeframe(
@@ -579,9 +579,9 @@ def test_parse_order_block_args_accepts_status_filter_and_timeframe(
     ("args", "expected_match"),
     [
         ([], "Usage: /ob"),
-        (["gold", "mitigated", "unmitigated"], "may only be provided once"),
-        (["gold", "H1", "H4"], "timeframe may only be provided once"),
-        (["gold", "inactive"], "Usage: /ob"),
+        (["spx500usd", "mitigated", "unmitigated"], "may only be provided once"),
+        (["spx500usd", "H1", "H4"], "timeframe may only be provided once"),
+        (["spx500usd", "inactive"], "Usage: /ob"),
     ],
 )
 def test_parse_order_block_args_rejects_invalid_optional_tokens(
@@ -630,7 +630,7 @@ async def test_order_blocks_command_filters_by_mitigation_status(
     )
     market_state = FakeMarketState(snapshot)
     context = DummyContext(
-        args=["gold", filter_arg],
+        args=["spx500usd", filter_arg],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.MARKET_STATE_KEY: market_state,
@@ -646,7 +646,7 @@ async def test_order_blocks_command_filters_by_mitigation_status(
     await bot_module.order_blocks_command(update, context)
 
     output = message.text_replies[-1]
-    assert market_state.calls == [("XAU_USD", "H1")]
+    assert market_state.calls == [("SPX500_USD", "H1")]
     assert f"Filter: {filter_arg} (all=2, mitigated=1, unmitigated=1)" in output
     assert expected_status in output
     assert unexpected_status not in output
@@ -656,14 +656,14 @@ async def test_order_blocks_command_filters_by_mitigation_status(
 @pytest.mark.parametrize(
     ("args", "expected_match"),
     [
-        (["gold", "1h", "--mode", "full"], "Unsupported chart option '--mode'"),
-        (["gold", "1h", "--count", "250"], "Unsupported chart option '--count'"),
-        (["gold", "1h", "--smc", "orderblocks"], "Unsupported chart option '--smc'"),
-        (["gold", "1h", "full", "balanced"], "Chart mode may only be provided once"),
-        (["gold", "1h", "250", "300"], "Chart count may only be provided once"),
-        (["gold", "1h", "full", "notes"], "Unsupported chart option 'notes'"),
-        (["gold", "1h", "1"], "Chart count must be between 2 and 5000"),
-        (["gold", "1h", "5001"], "Chart count must be between 2 and 5000"),
+        (["spx500usd", "1h", "--mode", "full"], "Unsupported chart option '--mode'"),
+        (["spx500usd", "1h", "--count", "250"], "Unsupported chart option '--count'"),
+        (["spx500usd", "1h", "--smc", "orderblocks"], "Unsupported chart option '--smc'"),
+        (["spx500usd", "1h", "full", "balanced"], "Chart mode may only be provided once"),
+        (["spx500usd", "1h", "250", "300"], "Chart count may only be provided once"),
+        (["spx500usd", "1h", "full", "notes"], "Unsupported chart option 'notes'"),
+        (["spx500usd", "1h", "1"], "Chart count must be between 2 and 5000"),
+        (["spx500usd", "1h", "5001"], "Chart count must be between 2 and 5000"),
     ],
 )
 def test_parse_chart_args_rejects_legacy_flags_and_invalid_tokens(
@@ -844,11 +844,11 @@ async def test_chart_command_uses_to_thread_and_sends_document(
     update = DummyUpdate(message)
     artifact_path = tmp_path / "chart.png"
     renderer = FakeRenderer(artifact_path)
-    request = SimpleNamespace(instrument="XAU_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
+    request = SimpleNamespace(instrument="SPX500_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
     runtime_config = FakeRuntimeConfigManager()
     security = FakeSecurityManager()
     context = DummyContext(
-        args=["gold", "1h"],
+        args=["spx500usd", "1h"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.CHART_RENDERER_KEY: renderer,
@@ -898,11 +898,11 @@ async def test_chart_command_includes_warning_caption_when_present(
     artifact_path = tmp_path / "chart.png"
     renderer = FakeRenderer(artifact_path)
     renderer.warning_text = "Warning: chart candles use cached fallback data after live fetch failed."
-    request = SimpleNamespace(instrument="XAU_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
+    request = SimpleNamespace(instrument="SPX500_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
     runtime_config = FakeRuntimeConfigManager()
     security = FakeSecurityManager()
     context = DummyContext(
-        args=["gold", "1h"],
+        args=["spx500usd", "1h"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.CHART_RENDERER_KEY: renderer,
@@ -936,11 +936,11 @@ async def test_chart_command_reports_render_failure(
     message = DummyMessage()
     update = DummyUpdate(message)
     renderer = FailingRenderer()
-    request = SimpleNamespace(instrument="XAU_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
+    request = SimpleNamespace(instrument="SPX500_USD", timeframe="H1", style=ChartRenderStyle.CANDLESTICK)
     runtime_config = FakeRuntimeConfigManager()
     security = FakeSecurityManager()
     context = DummyContext(
-        args=["gold", "1h"],
+        args=["spx500usd", "1h"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.CHART_RENDERER_KEY: renderer,
@@ -974,7 +974,7 @@ async def test_price_command_prefers_live_stream_quote(
     update = DummyUpdate(message)
     security = FakeSecurityManager()
     live_tick = PriceTick(
-        instrument="XAU_USD",
+        instrument="SPX500_USD",
         bid=3050.10,
         ask=3050.40,
         time=datetime(2026, 3, 29, 2, 0, tzinfo=timezone.utc),
@@ -985,7 +985,7 @@ async def test_price_command_prefers_live_stream_quote(
             raise AssertionError("REST pricing should not be used when a fresh live quote exists.")
 
     context = DummyContext(
-        args=["gold", "--live"],
+        args=["spx500usd", "--live"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.BOT_RUNTIME_KEY: SimpleNamespace(
@@ -1034,7 +1034,7 @@ async def test_price_command_falls_back_to_rest_when_live_quote_missing(
 
     account_client = RecordingAccountClient()
     context = DummyContext(
-        args=["gold", "--live"],
+        args=["spx500usd", "--live"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.BOT_RUNTIME_KEY: SimpleNamespace(
@@ -1052,7 +1052,7 @@ async def test_price_command_falls_back_to_rest_when_live_quote_missing(
 
     await bot_module.price_command(update, context)
 
-    assert account_client.calls == ["XAU_USD"]
+    assert account_client.calls == ["SPX500_USD"]
     assert "Source: live stream unavailable or stale, falling back to REST." in message.text_replies[-1]
     assert "Source: REST pricing" in message.text_replies[-1]
 
@@ -1096,7 +1096,7 @@ async def test_vwap_command_renders_summary(
 
     provider = FakeMarketDataProvider()
     context = DummyContext(
-        args=["gold", "h1", "--anchor", "daily", "--bands", "2,1"],
+        args=["spx500usd", "h1", "--anchor", "daily", "--bands", "2,1"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             MARKET_DATA_PROVIDER_KEY: provider,
@@ -1112,7 +1112,7 @@ async def test_vwap_command_renders_summary(
     await bot_module.vwap_command(update, context)
 
     assert provider.calls
-    assert "VWAP XAU_USD H1" in message.text_replies[-1]
+    assert "VWAP SPX500_USD H1" in message.text_replies[-1]
     assert "Anchor: D (daily)" in message.text_replies[-1]
     assert "Bands:" in message.text_replies[-1]
     assert "Caveat:" in message.text_replies[-1]
@@ -1508,7 +1508,7 @@ async def test_tradehistory_command_uses_service_and_formats_response(
     security = FakeSecurityManager()
     trade_history_service = FakeTradeHistoryService()
     context = DummyContext(
-        args=["month", "closed", "XAU_USD", "2"],
+        args=["month", "closed", "SPX500_USD", "2"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: security,
             bot_module.TRADE_HISTORY_SERVICE_KEY: trade_history_service,
@@ -1523,13 +1523,13 @@ async def test_tradehistory_command_uses_service_and_formats_response(
 
     await bot_module.tradehistory_command(update, context)
 
-    assert trade_history_service.trade_history_calls == [("month", "closed", "XAU_USD", 2)]
-    assert "Trade History - MONTH - CLOSED - XAU_USD" in message.text_replies[-1]
+    assert trade_history_service.trade_history_calls == [("month", "closed", "SPX500_USD", 2)]
+    assert "Trade History - MONTH - CLOSED - SPX500_USD" in message.text_replies[-1]
     assert message.text_replies[-1].splitlines()[1] == "P&L (2026-04-01): +12.20"
     assert "Gross Realized PnL: +12.50" in message.text_replies[-1]
     assert "Page 2/3" in message.text_replies[-1]
-    assert "Prev: /tradehistory month closed XAU_USD 1" in message.text_replies[-1]
-    assert "Next: /tradehistory month closed XAU_USD 3" in message.text_replies[-1]
+    assert "Prev: /tradehistory month closed SPX500_USD 1" in message.text_replies[-1]
+    assert "Next: /tradehistory month closed SPX500_USD 3" in message.text_replies[-1]
 
 
 @pytest.mark.asyncio
@@ -1635,7 +1635,7 @@ async def test_price_alert_command_reports_persistence_failure(
             raise make_persistence_error("upsert_price_alert")
 
     context = DummyContext(
-        args=["gold", "3050", "above"],
+        args=["spx500usd", "3050", "above"],
         bot_data={
             bot_module.SECURITY_MANAGER_KEY: FakeSecurityManager(),
             bot_module.ALERT_REPOSITORY_KEY: FailingAlertRepository(),

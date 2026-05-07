@@ -33,10 +33,10 @@ from providers.base import CandleFreshness, PriceSnapshot
 class TestCandleTemporalStability:
     """Verify that closed candle bars are immutable across consecutive fetches."""
 
-    def test_xau_usd_h1_closed_bars_stable_over_30_seconds(
+    def test_spx500_usd_h1_closed_bars_stable_over_30_seconds(
         self, live_settings, tmp_path
     ) -> None:
-        """Fetch XAU_USD H1 twice (30 s apart, fresh providers). Closed bars must match."""
+        """Fetch SPX500_USD H1 twice (30 s apart, fresh providers). Closed bars must match."""
         from core.logging_setup import configure_logging
         from data.csv_persistence import CandleCsvStore
         from data.persistence.trade_store import TradeStore
@@ -54,12 +54,12 @@ class TestCandleTemporalStability:
             return OandaMarketDataProvider(settings=live_settings, cache=cache)
 
         provider_a = _make_provider("a")
-        df_a = provider_a.get_candles("XAU_USD", "H1", count=100)
+        df_a = provider_a.get_candles("SPX500_USD", "H1", count=100)
 
         time.sleep(30)
 
         provider_b = _make_provider("b")
-        df_b = provider_b.get_candles("XAU_USD", "H1", count=100)
+        df_b = provider_b.get_candles("SPX500_USD", "H1", count=100)
 
         # All closed bars from the first fetch must appear unchanged in the
         # second.  Only the very last bar may differ if a new candle closed.
@@ -245,7 +245,7 @@ class TestCanonicalSchemaOnAllInstruments:
 # ---------------------------------------------------------------------------
 
 
-_FRESHNESS_INSTRUMENTS = ("XAU_USD", "EUR_USD", "USD_JPY")
+_FRESHNESS_INSTRUMENTS = ("SPX500_USD", "EUR_USD", "USD_JPY")
 
 
 class TestFreshnessSemanticsVsMarketHours:
@@ -290,7 +290,7 @@ class TestFreshnessSemanticsVsMarketHours:
 # ---------------------------------------------------------------------------
 
 
-_CONTINUITY_INSTRUMENTS = ("XAU_USD", "EUR_USD", "USD_JPY")
+_CONTINUITY_INSTRUMENTS = ("SPX500_USD", "EUR_USD", "USD_JPY")
 
 
 class TestPriceContinuity:

@@ -1,4 +1,4 @@
-"""FastMCP server factory for Gold Signal Bot V3."""
+"""FastMCP server factory for Market Signal Bot V3."""
 
 from __future__ import annotations
 
@@ -74,9 +74,9 @@ def build_mcp_server(
     resolved_settings = settings or runtime.settings
     service = BotMcpService(runtime=runtime, settings=resolved_settings)
     server = FastMCP(
-        name="Gold Signal Bot V3 MCP",
+        name="Market Signal Bot V3 MCP",
         instructions=(
-            "Use these tools to inspect Gold Signal Bot V3 raw market data, sanitized evidence, "
+            "Use these tools to inspect Market Signal Bot V3 raw market data, sanitized evidence, "
             "account state, trade journal/history, and alert surfaces. Responses are structured JSON."
         ),
         streamable_http_path=resolved_settings.mcp_http_path,
@@ -93,25 +93,25 @@ def build_mcp_server(
             structured_output=True,
         )(getattr(service, spec["name"]))
 
-    @server.resource("goldsignal://capabilities", name="Capabilities", mime_type="application/json")
+    @server.resource("marketsignal://capabilities", name="Capabilities", mime_type="application/json")
     def capabilities_resource() -> str:
         return _resource_json(BotMcpService.capabilities_payload())
 
-    @server.resource("goldsignal://supported-instruments", name="Supported Instruments", mime_type="application/json")
+    @server.resource("marketsignal://supported-instruments", name="Supported Instruments", mime_type="application/json")
     def supported_instruments_resource() -> str:
         return _resource_json(BotMcpService.supported_instruments_payload())
 
-    @server.resource("goldsignal://alert-defaults", name="Alert Defaults", mime_type="application/json")
+    @server.resource("marketsignal://alert-defaults", name="Alert Defaults", mime_type="application/json")
     def alert_defaults_resource() -> str:
         return _resource_json(BotMcpService.alert_defaults_payload())
 
-    @server.resource("goldsignal://tool-surface", name="Tool Surface", mime_type="application/json")
+    @server.resource("marketsignal://tool-surface", name="Tool Surface", mime_type="application/json")
     def tool_surface_resource() -> str:
         return _resource_json(BotMcpService.tool_surface_payload(TOOL_SPECS))
 
     @server.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def healthz_route(_request) -> JSONResponse:
-        return JSONResponse({"ok": True, "service": "gold-signal-bot-v3-mcp"})
+        return JSONResponse({"ok": True, "service": "market-signal-bot-v3-mcp"})
 
     return server
 

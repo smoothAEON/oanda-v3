@@ -1,4 +1,4 @@
-"""Gold Signal Bot V3 — convenience entry point.
+"""Market Signal Bot V3 — convenience entry point.
 
 Usage:
     python main.py

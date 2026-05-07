@@ -12,10 +12,10 @@ from core.enums import ChartMode, ChartRenderStyle, IndicatorKind
 from core.instrument_registry import SCAN_INSTRUMENTS, ensure_scan_instrument, normalize_instrument, validate_live_instrument
 from indicators.vwap import normalize_vwap_anchor, normalize_vwap_bands, validate_vwap_timeframe
 
-DEFAULT_COMMAND_INSTRUMENT = "XAU_USD"
+DEFAULT_COMMAND_INSTRUMENT = "SPX500_USD"
 
 SUPPORTED_INSTRUMENTS_HELP = "Supported: " + ", ".join(SCAN_INSTRUMENTS)
-BROKER_INSTRUMENT_USAGE = "Use a valid live OANDA instrument symbol such as XAU_USD, SPX500_USD, or BCO_USD."
+BROKER_INSTRUMENT_USAGE = "Use a valid live OANDA instrument symbol such as SPX500_USD, EUR_USD, or BCO_USD."
 DEFAULT_COMMAND_TIMEFRAME = "H1"
 SUPPORTED_COMMAND_TIMEFRAMES: tuple[str, ...] = ("M1", "M5", "M15", "M30", "H1", "H4", "D")
 DEFAULT_EXTRACTOR_TIMEFRAMES: tuple[str, ...] = ("M15", "H1", "H4", "D")
@@ -63,7 +63,7 @@ TIMEFRAME_ALIASES: dict[str, str] = {
 }
 TRADE_HISTORY_PERIODS: tuple[str, ...] = ("day", "week", "month", "today", "thisweek", "thismonth")
 TRADE_HISTORY_VIEWS: tuple[str, ...] = ("all", "opened", "closed")
-TRADE_HISTORY_INSTRUMENT_RE = re.compile(r"^[A-Z]{3,}_[A-Z]{3,}$")
+TRADE_HISTORY_INSTRUMENT_RE = re.compile(r"^[A-Z0-9]{3,}_[A-Z]{3,}$")
 VWAP_USAGE = (
     "Usage: /vwap <symbol> [timeframe] [--anchor D|W|M] [--bands 1,2]\n\n"
     + SUPPORTED_INSTRUMENTS_HELP
@@ -75,7 +75,7 @@ TRADE_HISTORY_USAGE = (
 TRADE_HISTORY_BACKFILL_USAGE = "Usage: /tradehistory_backfill <YYYY-MM-DD> <YYYY-MM-DD>"
 CHART_USAGE = (
     "Usage: /chart <symbol> [timeframe] [compact|balanced|full] [count]\n"
-    "Example: /chart XAU_USD H1 full 300\n\n"
+    "Example: /chart SPX500_USD H1 full 300\n\n"
     + SUPPORTED_INSTRUMENTS_HELP
 )
 ORDER_BLOCK_USAGE = (

@@ -37,12 +37,12 @@ from orchestration.scan_orchestrator import HTF_TIMEFRAMES, SCAN_TIMEFRAMES, Sca
 class TestFullPipelineCoverage:
     """Pipeline produces complete snapshots and bundles for each instrument."""
 
-    def test_xau_usd_bundle_and_snapshots(
+    def test_spx500_usd_bundle_and_snapshots(
         self,
         scan_orchestrator: ScanOrchestrator,
         market_state: MarketStateStore,
     ) -> None:
-        bundle = scan_orchestrator.refresh_instrument("XAU_USD")
+        bundle = scan_orchestrator.refresh_instrument("SPX500_USD")
 
         assert bundle is not None
         assert isinstance(bundle, InstrumentBundle)
@@ -53,8 +53,8 @@ class TestFullPipelineCoverage:
 
         # Every SCAN_TIMEFRAME snapshot is populated in market_state
         for tf in SCAN_TIMEFRAMES:
-            snap = market_state.get_snapshot("XAU_USD", tf)
-            assert snap is not None, f"Missing snapshot for XAU_USD {tf}"
+            snap = market_state.get_snapshot("SPX500_USD", tf)
+            assert snap is not None, f"Missing snapshot for SPX500_USD {tf}"
             assert isinstance(snap, TimeframeSnapshot)
 
             # Required fields present
@@ -114,15 +114,15 @@ class TestFullPipelineCoverage:
 class TestIndicatorBounds:
     """Indicator metric values fall within their mathematical bounds."""
 
-    def test_indicator_ranges_xau_usd(
+    def test_indicator_ranges_spx500_usd(
         self,
         scan_orchestrator: ScanOrchestrator,
         market_state: MarketStateStore,
     ) -> None:
-        scan_orchestrator.refresh_instrument("XAU_USD")
+        scan_orchestrator.refresh_instrument("SPX500_USD")
 
         for tf in SCAN_TIMEFRAMES:
-            snap = market_state.get_snapshot("XAU_USD", tf)
+            snap = market_state.get_snapshot("SPX500_USD", tf)
             assert snap is not None
 
             metrics_by_name: dict[str, float | None] = {
@@ -185,22 +185,22 @@ class TestSmcPlausibility:
         scan_orchestrator: ScanOrchestrator,
         market_state: MarketStateStore,
     ) -> None:
-        scan_orchestrator.refresh_instrument("XAU_USD")
+        scan_orchestrator.refresh_instrument("SPX500_USD")
 
         # Check across all timeframes; use soft skip if truly empty
         for tf in SCAN_TIMEFRAMES:
-            snap = market_state.get_snapshot("XAU_USD", tf)
+            snap = market_state.get_snapshot("SPX500_USD", tf)
             assert snap is not None
 
             if len(snap.structure.recent_breaks) == 0:
                 pytest.skip(
-                    f"XAU_USD {tf}: no recent_breaks found — unusual but possible "
+                    f"SPX500_USD {tf}: no recent_breaks found — unusual but possible "
                     f"on very low-volatility periods"
                 )
 
             if len(snap.liquidity.levels) == 0:
                 pytest.skip(
-                    f"XAU_USD {tf}: no liquidity levels found — unusual but possible"
+                    f"SPX500_USD {tf}: no liquidity levels found — unusual but possible"
                 )
 
 
@@ -221,7 +221,7 @@ class TestDetectorDeterminism:
         tmp_path,
     ) -> None:
         # Fetch candles once and deep-copy for mutation check
-        candles = live_provider.get_candles("XAU_USD", "H1", count=100)
+        candles = live_provider.get_candles("SPX500_USD", "H1", count=100)
         candles_copy = candles.copy(deep=True)
 
         from data.csv_persistence import CandleCsvStore
@@ -258,8 +258,8 @@ class TestDetectorDeterminism:
             market_hours_service=always_open_market_hours,
         )
 
-        snap_a = orch_a.refresh_snapshot("XAU_USD", "H1")
-        snap_b = orch_b.refresh_snapshot("XAU_USD", "H1")
+        snap_a = orch_a.refresh_snapshot("SPX500_USD", "H1")
+        snap_b = orch_b.refresh_snapshot("SPX500_USD", "H1")
 
         assert snap_a is not None
         assert snap_b is not None
@@ -295,12 +295,12 @@ class TestCrossTimeframeConsistency:
         scan_orchestrator: ScanOrchestrator,
         market_state: MarketStateStore,
     ) -> None:
-        bundle = scan_orchestrator.refresh_instrument("XAU_USD")
+        bundle = scan_orchestrator.refresh_instrument("SPX500_USD")
         assert bundle is not None
 
         snapshots = {}
         for tf in SCAN_TIMEFRAMES:
-            snap = market_state.get_snapshot("XAU_USD", tf)
+            snap = market_state.get_snapshot("SPX500_USD", tf)
             assert snap is not None
             snapshots[tf] = snap
 
@@ -309,9 +309,9 @@ class TestCrossTimeframeConsistency:
         assert snapshots["H4"].last_completed_candle <= snapshots["H1"].last_completed_candle
         assert snapshots["H1"].last_completed_candle <= snapshots["M15"].last_completed_candle
 
-        # All snapshots belong to XAU_USD
+        # All snapshots belong to SPX500_USD
         for tf in SCAN_TIMEFRAMES:
-            assert snapshots[tf].instrument == "XAU_USD"
+            assert snapshots[tf].instrument == "SPX500_USD"
 
         # HTF bias direction is valid
         assert bundle.htf_bias.direction in ("BULLISH", "BEARISH", "NEUTRAL")
@@ -329,31 +329,31 @@ class TestCrossTimeframeConsistency:
 class TestMultiInstrumentIsolation:
     """Scanning one instrument must not corrupt another's stored state."""
 
-    def test_xau_usd_unchanged_after_eur_usd_scan(
+    def test_spx500_usd_unchanged_after_eur_usd_scan(
         self,
         scan_orchestrator: ScanOrchestrator,
         market_state: MarketStateStore,
     ) -> None:
-        # Scan XAU_USD first
-        scan_orchestrator.refresh_instrument("XAU_USD")
+        # Scan SPX500_USD first
+        scan_orchestrator.refresh_instrument("SPX500_USD")
 
-        xau_snapshots_before: dict[str, TimeframeSnapshot] = {}
+        spx_snapshots_before: dict[str, TimeframeSnapshot] = {}
         for tf in SCAN_TIMEFRAMES:
-            snap = market_state.get_snapshot("XAU_USD", tf)
+            snap = market_state.get_snapshot("SPX500_USD", tf)
             assert snap is not None
-            xau_snapshots_before[tf] = snap
+            spx_snapshots_before[tf] = snap
 
         # Scan EUR_USD
         scan_orchestrator.refresh_instrument("EUR_USD")
 
-        # XAU_USD snapshots must be unchanged
+        # SPX500_USD snapshots must be unchanged
         for tf in SCAN_TIMEFRAMES:
-            snap_after = market_state.get_snapshot("XAU_USD", tf)
+            snap_after = market_state.get_snapshot("SPX500_USD", tf)
             assert snap_after is not None
 
-            before = xau_snapshots_before[tf]
+            before = spx_snapshots_before[tf]
             assert snap_after.version == before.version, (
-                f"XAU_USD {tf} version changed after EUR_USD scan"
+                f"SPX500_USD {tf} version changed after EUR_USD scan"
             )
 
             # Indicator values unchanged
@@ -372,7 +372,7 @@ class TestMultiInstrumentIsolation:
 class TestSpreadAndChopOnLiveData:
     """SpreadResult and ChopResult contracts hold on live data."""
 
-    @pytest.mark.parametrize("instrument", ["XAU_USD", "EUR_USD"])
+    @pytest.mark.parametrize("instrument", ["SPX500_USD", "EUR_USD"])
     def test_spread_and_chop_contracts(
         self,
         instrument: str,
@@ -422,17 +422,17 @@ def test_snapshot_version_pinning_roundtrip(
     """Two successive scans produce distinct versioned snapshots retrievable by version."""
 
     # First scan -> v1
-    scan_orchestrator.refresh_instrument("XAU_USD")
+    scan_orchestrator.refresh_instrument("SPX500_USD")
 
     # Second scan -> v2
     # Patch is_cache_fresh to return True so the cache returns existing data
     # instead of attempting an append-refresh (which fails on weekends when
     # OANDA returns no new candles).
     with patch("providers.cache.is_cache_fresh", return_value=True):
-        scan_orchestrator.refresh_instrument("XAU_USD")
+        scan_orchestrator.refresh_instrument("SPX500_USD")
 
-    v1 = market_state.get_snapshot_version("XAU_USD", "H1", 1)
-    v2 = market_state.get_snapshot_version("XAU_USD", "H1", 2)
+    v1 = market_state.get_snapshot_version("SPX500_USD", "H1", 1)
+    v2 = market_state.get_snapshot_version("SPX500_USD", "H1", 2)
 
     assert v1 is not None, "v1 snapshot not found in history"
     assert v2 is not None, "v2 snapshot not found in history"

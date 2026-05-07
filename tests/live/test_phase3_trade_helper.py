@@ -205,7 +205,7 @@ class TestLiveStreamTickFlow:
     async def test_stream_yields_ticks_and_heartbeats(self, stream_client) -> None:
         ticks: list[PriceTick] = []
         heartbeats: list[Heartbeat] = []
-        requested = ("XAU_USD", "EUR_USD")
+        requested = ("SPX500_USD", "EUR_USD")
 
         async def _collect() -> None:
             async for event in stream_client.stream_prices(requested):
@@ -501,7 +501,7 @@ class TestPriceAlertFireOnCrossing:
     ) -> None:
         from alerts.price_alert_engine import PriceAlertEngine
 
-        instrument = "XAU_USD"
+        instrument = "SPX500_USD"
 
         # Seed an already-armed alert at the current bid so the next real tick is eligible.
         snap = await account_client.get_pricing(instrument)

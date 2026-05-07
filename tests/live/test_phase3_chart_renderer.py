@@ -21,7 +21,7 @@ def test_live_chart_render_produces_png_and_cleans_up(
     market_state,
     tmp_path: Path,
 ) -> None:
-    scan_orchestrator.refresh_snapshot("XAU_USD", "H1")
+    scan_orchestrator.refresh_snapshot("SPX500_USD", "H1")
     renderer = build_renderer(
         settings=live_settings,
         market_state=market_state,
@@ -34,7 +34,7 @@ def test_live_chart_render_produces_png_and_cleans_up(
     )
     payload = build_render_payload(
         build_request(
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             timeframe="H1",
             count=50,
             smc=("orderblocks",),
@@ -46,7 +46,7 @@ def test_live_chart_render_produces_png_and_cleans_up(
         ("order_block_annotations", "order_blocks", "smc_order_blocks"),
     )
     first_order_block = order_blocks[0] if isinstance(order_blocks, (list, tuple)) else order_blocks
-    snapshot = market_state.get_snapshot("XAU_USD", "H1")
+    snapshot = market_state.get_snapshot("SPX500_USD", "H1")
     assert snapshot is not None
     assert get_first_present(first_order_block, ("anchor_time", "created_at", "time", "start_time")) == (
         snapshot.zones.order_blocks[0].created_at
@@ -55,7 +55,7 @@ def test_live_chart_render_produces_png_and_cleans_up(
     render_chart = get_renderer_method(renderer, ("render", "render_chart", "_render"))
     result = render_chart(
         build_request(
-            instrument="XAU_USD",
+            instrument="SPX500_USD",
             timeframe="H1",
             count=50,
             smc=("orderblocks",),

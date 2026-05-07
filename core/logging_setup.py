@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import traceback
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -42,7 +43,10 @@ def configure_logging(settings: Settings | None = None) -> None:
     if resolved_settings.log_json:
         renderer = structlog.processors.JSONRenderer()
     else:
-        renderer = structlog.dev.ConsoleRenderer(colors=False)
+        renderer = structlog.dev.ConsoleRenderer(
+            colors=False,
+            exception_formatter=structlog.dev.plain_traceback,
+        )
 
     shared_processors = [
         structlog.contextvars.merge_contextvars,
@@ -122,7 +126,7 @@ def log_failure(
         event,
         error=str(exc) or repr(exc),
         exception_type=type(exc).__name__,
-        exc_info=exc,
+        traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
         **fields,
     )
 

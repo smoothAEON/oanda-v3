@@ -59,9 +59,9 @@ The following verbatim output formats are the required contract for journal and 
 ```text
 📒 Trade Journal (last 10)
 
-#12345678  XAU_USD  LONG   CLOSED  +42.0 pips  2026-03-21
+#12345678  SPX500_USD  LONG   CLOSED  +42.0 pips  2026-03-21
 #12345677  EUR_USD  SHORT  CLOSED  –18.5 pips  2026-03-20
-#12345676  XAU_USD  LONG   OPEN    —           2026-03-20
+#12345676  SPX500_USD  LONG   OPEN    —           2026-03-20
 
 Filters: none  |  /journal <id> for full detail
 ```
@@ -75,7 +75,7 @@ Filters: none  |  /journal <id> for full detail
 ```text
 📒 Trade Detail — #12345678
 
-Instrument:   XAU_USD
+Instrument:   SPX500_USD
 Direction:    LONG
 Units:        1.00
 Entry:        2341.50
@@ -107,7 +107,7 @@ Note:         "asia session breakout"
 ```text
 📉 MAE / MFE — Open Trades
 
-#12345676  XAU_USD  LONG   MAE: –8.5 pips   MFE: +22.0 pips
+#12345676  SPX500_USD  LONG   MAE: –8.5 pips   MFE: +22.0 pips
 #12345675  EUR_USD  SHORT  MAE: –3.0 pips   MFE: +11.5 pips
 
 Updated live from price stream. Use /maemfe <id> for full detail.
@@ -118,7 +118,7 @@ Updated live from price stream. Use /maemfe <id> for full detail.
 ```text
 📉 MAE/MFE — #12345676
 
-Instrument:  XAU_USD
+Instrument:  SPX500_USD
 Direction:   LONG
 Entry:       2341.50
 Current:     2349.80

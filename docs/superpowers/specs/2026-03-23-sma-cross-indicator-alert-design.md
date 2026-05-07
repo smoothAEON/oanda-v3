@@ -4,19 +4,19 @@
 
 **Date:** 2026-03-23
 **Status:** Approved
-**Scope:** Add SMA golden cross and death cross as a new `IndicatorKind` for candle-triggered indicator alerts, covering timeframes M15 through D.
+**Scope:** Add SMA bullish cross and bearish cross as a new `IndicatorKind` for candle-triggered indicator alerts, covering timeframes M15 through D.
 
 ---
 
 ## Problem
 
-The indicator alert system supports RSI, STOCH, and MACD. The SMA 50/200 golden cross (SMA50 crosses above SMA200) and death cross (SMA50 crosses below SMA200) are widely used signals that should be alertable on the same candle-triggered path.
+The indicator alert system supports RSI, STOCH, and MACD. The SMA 50/200 bullish cross (SMA50 crosses above SMA200) and bearish cross (SMA50 crosses below SMA200) are widely used signals that should be alertable on the same candle-triggered path.
 
 ---
 
 ## Approach: `SMA_CROSS` as a spread with zero baseline
 
-`IndicatorKind.SMA_CROSS` is added as a new enum value. The engine represents the SMA cross signal as a single float: `sma50 - sma200`. This is positive in "golden territory" and negative in "death territory". A golden cross fires when the spread crosses from ≤ 0 to > 0 (`cross_up`); a death cross fires when it crosses from ≥ 0 to < 0 (`cross_down`). The zero baseline is identical to MACD's baseline — the `_is_triggered` logic is extended to include `SMA_CROSS` in the zero-baseline set.
+`IndicatorKind.SMA_CROSS` is added as a new enum value. The engine represents the SMA cross signal as a single float: `sma50 - sma200`. This is positive in "bullish territory" and negative in "bearish territory". A bullish cross fires when the spread crosses from ≤ 0 to > 0 (`cross_up`); a bearish cross fires when it crosses from ≥ 0 to < 0 (`cross_down`). The zero baseline is identical to MACD's baseline — the `_is_triggered` logic is extended to include `SMA_CROSS` in the zero-baseline set.
 
 `_resolve_values` for SMA_CROSS calls `_metric_value` on all four metric lookups and always returns `tuple[float, float]` or raises `RuntimeError`. It never returns `(float, None)`.
 
@@ -80,8 +80,8 @@ class IndicatorKind(StrEnum):
 Two new entries added (only `cross_up` and `cross_down` — no `above`/`below`):
 
 ```python
-(IndicatorKind.SMA_CROSS, "cross_up"): None,   # golden cross
-(IndicatorKind.SMA_CROSS, "cross_down"): None,  # death cross
+(IndicatorKind.SMA_CROSS, "cross_up"): None,   # bullish cross
+(IndicatorKind.SMA_CROSS, "cross_down"): None,  # bearish cross
 ```
 
 `get_default_threshold(SMA_CROSS, "above")` raises `KeyError` as intended — `above`/`below` are not advertised combinations for SMA_CROSS. The combo count increases from 12 to 14.
@@ -144,8 +144,8 @@ Three changes:
 ```python
 sma_cross_timeframes = ("M15", "H1", "H4", "D")
 sma_cross_defaults = [
-    (IndicatorKind.SMA_CROSS, "cross_up", None, "SMA golden cross"),
-    (IndicatorKind.SMA_CROSS, "cross_down", None, "SMA death cross"),
+    (IndicatorKind.SMA_CROSS, "cross_up", None, "SMA bullish cross"),
+    (IndicatorKind.SMA_CROSS, "cross_down", None, "SMA bearish cross"),
 ]
 for instrument in SCAN_INSTRUMENTS:
     for tf in sma_cross_timeframes:
@@ -158,7 +158,7 @@ for instrument in SCAN_INSTRUMENTS:
 ```
 Created N default indicator alerts.
 RSI 70/30, STOCH 80/20 on H1 per instrument.
-SMA golden cross + death cross on M15/H1/H4/D per instrument.
+SMA bullish cross + bearish cross on M15/H1/H4/D per instrument.
 Use /listindicators to view.
 ```
 
@@ -184,7 +184,7 @@ Use /listindicators to view.
 
 ### `tests/unit/test_indicator_alert_engine.py`
 
-- `test_sma_cross_golden_cross_fires` — spread goes from negative to positive → fires
+- `test_sma_cross_bullish_cross_fires` — spread goes from negative to positive → fires
 - `test_sma_cross_death_cross_fires` — spread goes from positive to negative → fires
 - `test_sma_cross_no_cross_does_not_fire` — spread stays positive → no fire
 - `test_sma_cross_raises_when_sma_200_unavailable` — `sma_200=None` in **current** metrics, `sma_50` is valid in current metrics → `RuntimeError` (isolates the `self._metric_value(current_metrics, "sma_200")` call)
@@ -205,4 +205,4 @@ Note: `above`/`below` conditions are not tested explicitly — they fall through
 - SMA_CROSS `_resolve_values` requires ≥ 200 candles to produce non-None metrics for both `sma_50` and `sma_200`. The default `DEFAULT_CANDLE_COUNT` is 500, so this is satisfied in production. In tests, stub candle frames shorter than 200 bars will produce `None` metrics and raise `RuntimeError` — the `RuntimeError` exits the entire `evaluate_for_snapshot` call, skipping any remaining alerts for that instrument/timeframe in that cycle. The orchestrator catches this, logs a warning, and continues.
 - **First-fire behaviour:** `_metric_value` always raises `RuntimeError` if a metric is `None`, so `previous_value` is never `None` in practice — it is always a real float computed from the previous candle slice (which has 499 candles in production, well above the 200-candle minimum for both SMA metrics). The baseline-substitution path in `_is_triggered` is unreachable for SMA_CROSS as a runtime invariant enforced by `_resolve_values`. A newly created SMA_CROSS alert does NOT fire on first evaluation unless an actual cross occurred on the most recent closed candle.
 - No timeframe gating in engine code. The `/indicatoralert defaults` command creates alerts for M15, H1, H4, D only. Manual `/indicatoralert` allows any timeframe; behaviour on M1/M5 is valid but potentially noisy.
-- `above`/`below` conditions work on the spread if a user explicitly specifies them (e.g. `/indicatoralert XAU_USD H1 SMA_CROSS above 0` = "alert when in golden territory"), but are not in the defaults table and not advertised.
+- `above`/`below` conditions work on the spread if a user explicitly specifies them (e.g. `/indicatoralert SPX500_USD H1 SMA_CROSS above 0` = "alert when in bullish territory"), but are not in the defaults table and not advertised.

@@ -82,7 +82,7 @@ def _validate_oanda_instrument_symbol(value: str, *, field_name: str = "instrume
         raise ValueError(f"{field_name} must be a non-empty string.")
     if not OANDA_INSTRUMENT_RE.fullmatch(candidate):
         raise ValueError(
-            f"{field_name} must look like an OANDA instrument symbol such as XAU_USD or SGD_JPY."
+            f"{field_name} must look like an OANDA instrument symbol such as SPX500_USD or SGD_JPY."
         )
     return candidate
 
