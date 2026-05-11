@@ -1,4 +1,4 @@
-"""Scheduled open-trade polling and diff emission for Stage 11."""
+"""One-shot open-trade sync and diff emission."""
 
 from __future__ import annotations
 
@@ -13,11 +13,8 @@ from core.events import TradeClosedEvent, TradeModifiedEvent, TradeOpenedEvent
 from core.logging_setup import get_logger, log_failure
 from core.models import BackgroundTaskStatus
 from journal.close_reasons import infer_close_reason
-from notifications.message_builder import NotificationMessageBuilder
-from notifications.notifier import Notifier
 from journal.journal_service import JournalService
 from journal.trade_repository import TradeRepository
-from notifications.delivery import deliver_message_blocking
 from providers.account_client import OandaAccountClient
 
 
@@ -32,8 +29,6 @@ class TradePollerTask:
         *,
         settings: Settings | None = None,
         runtime_config_manager=None,
-        notifier: Notifier | None = None,
-        message_builder: NotificationMessageBuilder | None = None,
         open_trade_instruments_handler: Callable[[set[str]], object] | None = None,
     ) -> None:
         self.account_client = account_client
@@ -41,8 +36,6 @@ class TradePollerTask:
         self.journal_service = journal_service
         self.settings = settings or get_settings()
         self.runtime_config_manager = runtime_config_manager
-        self.notifier = notifier
-        self.message_builder = message_builder
         self.open_trade_instruments_handler = open_trade_instruments_handler
         self.logger = get_logger(__name__)
         self._started_at: datetime | None = None
@@ -51,7 +44,7 @@ class TradePollerTask:
         self._last_error: str | None = None
 
     def run_once(self) -> tuple[object, ...]:
-        """Run one polling cycle from a scheduler thread."""
+        """Run one polling cycle from a worker thread."""
 
         return tuple(self._poll_once_sync())
 
@@ -120,11 +113,6 @@ class TradePollerTask:
                     gslo_present=event.gslo is not None,
                 )
                 stored_trade = self.journal_service.handle_trade_opened(event)
-                self._dispatch_trade_opened(
-                    stored_trade,
-                    account_currency=account_currency,
-                    cycle_errors=cycle_errors,
-                )
                 emitted.append(event)
                 continue
 
@@ -218,8 +206,6 @@ class TradePollerTask:
                 gslo_present=existing.gslo_price is not None,
             )
             stored_trade = self.journal_service.handle_trade_closed(event)
-            if stored_trade is not None:
-                self._dispatch_trade_closed(stored_trade, cycle_errors=cycle_errors)
             emitted.append(event)
 
         self._dispatch_open_trade_instruments(current_instruments)
@@ -326,11 +312,6 @@ class TradePollerTask:
             return None
         return float(value)
 
-    def _trade_push_enabled(self) -> bool:
-        if self.runtime_config_manager is None:
-            return True
-        return bool(self.runtime_config_manager.trade_push_enabled())
-
     def _safe_account_currency(self) -> str:
         summary_getter = getattr(self.account_client, "get_account_summary_sync", None)
         if not callable(summary_getter):
@@ -348,63 +329,6 @@ class TradePollerTask:
         if isinstance(summary, dict):
             return str(summary.get("currency") or self.settings.account_currency)
         return getattr(summary, "currency", None) or self.settings.account_currency
-
-    def _dispatch_trade_opened(
-        self,
-        trade,
-        *,
-        account_currency: str | None = None,
-        cycle_errors: list[str] | None = None,
-    ) -> None:
-        if not self._trade_push_enabled() or self.notifier is None or self.message_builder is None:
-            return
-        self._dispatch_notification(
-            text=self.message_builder.build_trade_opened(
-                trade,
-                account_currency=account_currency,
-            ),
-            chat_id=self.settings.telegram_chat_id,
-            event="trade_open_notification_failed",
-            cycle_errors=cycle_errors,
-            trade_id=trade.trade_id,
-            instrument=trade.instrument,
-        )
-
-    def _dispatch_trade_closed(self, trade, *, cycle_errors: list[str] | None = None) -> None:
-        if not self._trade_push_enabled() or self.notifier is None or self.message_builder is None:
-            return
-        self._dispatch_notification(
-            text=self.message_builder.build_trade_closed(trade),
-            chat_id=self.settings.telegram_chat_id,
-            event="trade_close_notification_failed",
-            cycle_errors=cycle_errors,
-            trade_id=trade.trade_id,
-            instrument=trade.instrument,
-        )
-
-    def _dispatch_notification(
-        self,
-        *,
-        text: str,
-        chat_id: int,
-        event: str,
-        cycle_errors: list[str] | None = None,
-        **fields: object,
-    ) -> None:
-        error = deliver_message_blocking(
-            self.notifier,
-            chat_id=chat_id,
-            text=text,
-            logger=self.logger,
-            failure_event=event,
-            **fields,
-        )
-        if error is None:
-            return
-        self._last_error = str(error)
-        self._last_error_at = datetime.now(timezone.utc)
-        if cycle_errors is not None:
-            cycle_errors.append(f"{event}:{error}")
 
     def _dispatch_open_trade_instruments(self, instruments: set[str]) -> None:
         if self.open_trade_instruments_handler is None:

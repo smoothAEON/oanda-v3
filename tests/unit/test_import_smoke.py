@@ -1,4 +1,4 @@
-"""Stage 01 smoke tests for package layout and imports."""
+"""Smoke tests for the current local MCP package layout."""
 
 from __future__ import annotations
 
@@ -8,85 +8,88 @@ from pathlib import Path
 import pytest
 
 MODULES = (
+    "agent",
+    "agent.parsing",
+    "agent.pricing",
+    "agent.runtime",
+    "agent.runtime_views",
+    "background",
+    "background.poller_task",
+    "charting",
+    "charting.renderer",
     "config",
     "config.settings",
     "core",
+    "core.analysis_config",
     "core.candle_policy",
-    "core.instrument_registry",
     "core.enums",
     "core.events",
-    "core.models",
-    "core.market_state",
+    "core.instrument_registry",
     "core.logging_setup",
-    "providers",
-    "providers.base",
-    "providers.oanda",
-    "providers.account_client",
-    "providers.stream_client",
-    "providers.oanda_execution",
-    "providers.cache",
-    "smc",
-    "smc.provider",
-    "indicators",
-    "indicators.talib_wrappers",
-    "indicators.pandasta_wrappers",
-    "indicators.tick_volume",
-    "filters",
+    "core.market_state",
+    "core.models",
     "data",
+    "data.correlation_service",
+    "data.csv_persistence",
     "data.forex_calendar",
     "data.macro",
     "data.market_hours",
-    "data.yfinance_service",
-    "data.csv_persistence",
     "data.persistence",
     "data.persistence.trade_store",
+    "data.yfinance_service",
+    "filters",
+    "indicators",
+    "indicators.pandasta_wrappers",
+    "indicators.talib_wrappers",
+    "indicators.tick_volume",
+    "indicators.vwap",
     "journal",
-    "journal.trade_repository",
+    "journal.close_reasons",
     "journal.excursion_repository",
     "journal.journal_service",
+    "journal.mae_mfe_service",
+    "journal.trade_history_service",
+    "journal.trade_normalizer",
+    "journal.trade_repository",
+    "journal.trade_stats_service",
+    "mcp_server",
+    "mcp_server.adapters",
+    "mcp_server.main",
+    "mcp_server.server",
+    "orchestration",
+    "orchestration.cache_warmer",
+    "orchestration.scan_orchestrator",
+    "providers",
+    "providers.account_client",
+    "providers.base",
+    "providers.cache",
+    "providers.oanda",
+    "providers.oanda_execution",
+    "providers.oanda_history",
+    "providers.stream_client",
+    "smc",
+    "smc.provider",
+    "tests",
+    "tests.integration",
+    "tests.unit",
     "tracking",
     "tracking.excursion_tracker",
-    "alerts",
-    "alerts.alert_repository",
-    "alerts.price_alert_engine",
-    "alerts.indicator_alert_engine",
-    "alerts.defaults",
-    "notifications",
-    "notifications.message_builder",
-    "notifications.notifier",
-    "background",
-    "background.poller_task",
-    "background.stream_task",
-    "background.task_supervisor",
-    "charting",
-    "charting.renderer",
-    "orchestration",
-    "orchestration.scan_orchestrator",
-    "orchestration.scheduler",
-    "orchestration.cache_warmer",
-    "bot",
-    "bot.bot",
-    "bot.formatting",
-    "bot.main",
-    "bot.parsing",
-    "bot.runtime",
-    "bot.runtime_config",
-    "bot.security_manager",
-    "bot.message_queue",
-    "bot.__main__",
-    "tests",
-    "tests.unit",
-    "tests.integration",
 )
 
 REMOVED_MODULES = (
+    "alerts.alert_repository",
+    "background.stream_task",
+    "background.task_supervisor",
+    "bot.bot",
+    "notifications.message_builder",
+    "orchestration.scheduler",
+    "mcp_server.auth",
     "smc." + "htf_bias",
     "smc." + "sfp",
     "smc." + "turtle_soup",
     "smc." + "orb",
     "filters." + "spread",
     "filters." + "chop",
-    "bot." + "tradeplan",
 )
 
 DISALLOWED_TOP_LEVEL_NAMESPACES = (
@@ -108,19 +111,17 @@ DISALLOWED_TOP_LEVEL_NAMESPACES = (
 
 
 @pytest.mark.parametrize("module_name", MODULES)
-def test_stage_01_modules_import(module_name: str) -> None:
-    """Every reserved Stage 01 module must import without side effects."""
+def test_modules_import(module_name: str) -> None:
     importlib.import_module(module_name)
 
 
 @pytest.mark.parametrize("module_name", REMOVED_MODULES)
-def test_deleted_opinion_modules_are_absent(module_name: str) -> None:
+def test_removed_modules_are_absent(module_name: str) -> None:
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module(module_name)
 
 
 @pytest.mark.parametrize("relative_path", DISALLOWED_TOP_LEVEL_NAMESPACES)
 def test_non_canonical_top_level_namespaces_are_absent(relative_path: str) -> None:
-    """The Stage 01 layout should match the V3 plan exactly."""
     repo_root = Path(__file__).resolve().parents[2]
     assert not (repo_root / relative_path).exists()

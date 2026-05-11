@@ -17,10 +17,6 @@ def write_env_file(path: Path, **overrides: str) -> Path:
         "OANDA_API_KEY": "k",
         "OANDA_ACCOUNT_ID": "a",
         "OANDA_ENVIRONMENT": "practice",
-        "TELEGRAM_BOT_TOKEN": "t",
-        "TELEGRAM_CHAT_ID": "1",
-        "TELEGRAM_BOT_PASSWORD": "p",
-        "TELEGRAM_ADMIN_IDS": "1",
         "TINYDB_PATH": str(path.parent / "bot.json"),
     }
     values.update(overrides)

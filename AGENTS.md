@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 This file gives coding agents the current repo contract.
 

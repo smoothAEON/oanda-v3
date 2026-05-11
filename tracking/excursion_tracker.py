@@ -11,6 +11,8 @@ from core.models import ExcursionSample, TradeRecord
 from journal.excursion_repository import ExcursionRepository
 from journal.trade_repository import TradeRepository
 
+DEFAULT_MAE_MFE_MIN_PIP_MOVE = 0.5
+
 
 class ExcursionTracker:
     """Persist bounded excursion samples for open trades."""
@@ -67,10 +69,10 @@ class ExcursionTracker:
         if last is None:
             return True
 
-        min_move = self.settings.mae_mfe_min_pip_move
+        min_move = getattr(self.settings, "mae_mfe_min_pip_move", DEFAULT_MAE_MFE_MIN_PIP_MOVE)
         adverse_delta = abs(sample.adverse_pips - last.adverse_pips)
         favorable_delta = abs(sample.favorable_pips - last.favorable_pips)
         return adverse_delta >= min_move or favorable_delta >= min_move
 
 
-__all__ = ["ExcursionTracker"]
+__all__ = ["DEFAULT_MAE_MFE_MIN_PIP_MOVE", "ExcursionTracker"]

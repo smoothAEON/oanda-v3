@@ -82,7 +82,7 @@ def configure_logging(settings: Settings | None = None) -> None:
     root_logger.setLevel(log_level)
 
     handlers: list[logging.Handler] = [
-        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr),
         RotatingFileHandler(
             log_paths["application"],
             maxBytes=LOG_FILE_MAX_BYTES,

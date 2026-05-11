@@ -1,10 +1,10 @@
-"""Market Signal Bot V3 — convenience entry point.
+"""Market Signal MCP local stdio convenience entry point.
 
 Usage:
     python main.py
 """
 
-from bot.bot import main
+from mcp_server.main import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

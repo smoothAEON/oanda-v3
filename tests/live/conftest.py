@@ -41,14 +41,6 @@ def account_client(live_settings):
 
 
 @pytest.fixture(scope="session")
-def stream_client(live_settings):
-    """Session-scoped OandaStreamClient with real credentials."""
-    from providers.stream_client import OandaStreamClient
-
-    return OandaStreamClient(settings=live_settings)
-
-
-@pytest.fixture()
 def tmp_db_path(tmp_path):
     """Per-test TinyDB path for isolated persistence."""
     return tmp_path / "test_live.json"
@@ -76,14 +68,6 @@ def excursion_repository(trade_store):
     from journal.excursion_repository import ExcursionRepository
 
     return ExcursionRepository(store=trade_store)
-
-
-@pytest.fixture()
-def alert_repository(trade_store):
-    """Per-test AlertRepository (shares TinyDB with trade_repository)."""
-    from alerts.alert_repository import AlertRepository
-
-    return AlertRepository(store=trade_store)
 
 
 @pytest.fixture()

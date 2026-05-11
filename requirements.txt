@@ -20,19 +20,11 @@ mplfinance
 tinydb
 portalocker
 
-# Scheduling
-apscheduler>=3.10
-
 # Observability
 structlog
 
-# Telegram
-python-telegram-bot>=21.0
-
-# MCP HTTP surface
+# MCP stdio surface
 mcp>=1.27.0
-starlette>=0.27
-uvicorn>=0.31.1
 
 # HTTP (used by oandapyV20 internally + calendar fetch)
 requests>=2.31.0

@@ -13,7 +13,6 @@ from core.models import (
     IndicatorValueSummary,
     LiquidityPoolSummary,
     OrderBlockSummary,
-    PriceAlert,
     SnapshotFreshness,
     SmcContextSummary,
     SpreadResult,
@@ -27,7 +26,6 @@ from tests.unit.test_chart_renderer import (
     build_renderer,
     build_settings,
     build_trade,
-    build_alert,
     build_pending_order,
     get_first_present,
     get_renderer_method,
@@ -153,7 +151,6 @@ def test_state_first_refresh_precedes_smc_payload_building(tmp_path: Path) -> No
         market_data_provider=RecordingProvider(),
         scan_orchestrator=RecordingScanOrchestrator(),
         trade_repository=SimpleNamespace(list_open=lambda: []),
-        alert_repository=SimpleNamespace(list_pending_price_alerts=lambda: []),
         account_client=SimpleNamespace(get_open_orders=lambda: []),
     )
 
@@ -166,7 +163,6 @@ def test_state_first_refresh_precedes_smc_payload_building(tmp_path: Path) -> No
             instrument="EUR_USD",
             smc=("orderblocks", "structure", "liquidity"),
             trade=("positions",),
-            alert=("pricealerts",),
         )
     )
     resolved = as_mapping(payload)
@@ -229,12 +225,6 @@ def test_runtime_overlays_filter_to_requested_instrument(tmp_path: Path) -> None
                 build_trade(trade_id="other", instrument="SPX500_USD"),
             ]
         ),
-        alert_repository=SimpleNamespace(
-            list_pending_price_alerts=lambda: [
-                build_alert(instrument="EUR_USD"),
-                build_alert(id=2, instrument="SPX500_USD"),
-            ]
-        ),
         account_client=SimpleNamespace(
             get_open_orders=lambda: [
                 build_pending_order("EUR_USD"),
@@ -252,96 +242,17 @@ def test_runtime_overlays_filter_to_requested_instrument(tmp_path: Path) -> None
             instrument="EUR_USD",
             smc=("orderblocks",),
             trade=("positions", "orders", "sl", "tp", "gslo"),
-            alert=("pricealerts",),
         )
     )
     resolved = as_mapping(payload)
 
     trades = get_first_present(resolved, ("trade_overlays", "trades", "open_trades"))
     orders = get_first_present(resolved, ("order_overlays", "pending_orders", "orders"))
-    alerts = get_first_present(resolved, ("price_alert_overlays", "price_alerts", "alerts"))
 
     assert len(trades) == 1
     assert len(orders) == 1
-    assert len(alerts) == 1
     assert all(get_first_present(item, ("instrument",)) == "EUR_USD" for item in trades)
     assert all(get_first_present(item, ("instrument",)) == "EUR_USD" for item in orders)
-    assert all(get_first_present(item, ("instrument",)) == "EUR_USD" for item in alerts)
-
-
-def test_chart_payload_filters_price_alerts_to_request_chat(tmp_path: Path) -> None:
-    settings = build_settings(tmp_path)
-    market_state = MarketStateStore()
-    market_state.publish_snapshot(build_snapshot())
-    candles = build_candles(closes=[100.0 + index * 0.25 for index in range(40)])
-
-    class RecordingProvider:
-        def get_candles(self, instrument: str, timeframe: str, count: int | None = None):
-            return candles
-
-        def get_current_price(self, instrument: str):
-            return SimpleNamespace(
-                instrument=instrument,
-                bid=101.0,
-                ask=101.1,
-                spread_price=0.1,
-                spread_pips=1.0,
-                fetched_at=BASE_TIME,
-            )
-
-        def get_candle_freshness(self, instrument: str, timeframe: str):
-            return SimpleNamespace(
-                instrument=instrument,
-                timeframe=timeframe,
-                last_completed_candle=BASE_TIME,
-                fetched_at=BASE_TIME,
-                source="oanda_api",
-                candle_count=len(candles),
-                is_fresh=True,
-                staleness_seconds=0.0,
-            )
-
-    class RecordingScanOrchestrator:
-        def refresh_snapshot(self, instrument: str, timeframe: str):
-            return build_snapshot(last_completed_candle=BASE_TIME + timedelta(hours=1))
-
-    class ChatScopedAlerts:
-        def list_pending_price_alerts(self):
-            raise AssertionError("chart payload should use the chat-scoped alert query")
-
-        def list_pending_price_alerts_for_chat(self, chat_id: int):
-            assert chat_id == 123
-            return [
-                build_alert(id=1, instrument="EUR_USD", chat_id=123, target_price=101.5),
-                build_alert(id=2, instrument="EUR_USD", chat_id=999, target_price=101.8),
-            ][:1]
-
-    renderer = build_renderer(
-        settings=settings,
-        market_state=market_state,
-        market_data_provider=RecordingProvider(),
-        scan_orchestrator=RecordingScanOrchestrator(),
-        trade_repository=SimpleNamespace(list_open=lambda: []),
-        alert_repository=ChatScopedAlerts(),
-        account_client=SimpleNamespace(get_open_orders=lambda: []),
-    )
-
-    build_render_payload = get_renderer_method(
-        renderer,
-        ("build_render_payload", "prepare_render_payload", "_build_render_payload"),
-    )
-    payload = build_render_payload(
-        build_request(
-            instrument="EUR_USD",
-            chat_id=123,
-            alert=("pricealerts",),
-        )
-    )
-    resolved = as_mapping(payload)
-    alerts = get_first_present(resolved, ("price_alert_overlays", "price_alerts", "alerts"))
-
-    assert len(alerts) == 1
-    assert get_first_present(alerts[0], ("alert_id", "id")) == 1
 
 
 def test_chart_payload_includes_stale_snapshot_warning(tmp_path: Path) -> None:
@@ -374,7 +285,6 @@ def test_chart_payload_includes_stale_snapshot_warning(tmp_path: Path) -> None:
         market_data_provider=RecordingProvider(),
         scan_orchestrator=SimpleNamespace(refresh_snapshot=lambda instrument, timeframe: stale_snapshot),
         trade_repository=SimpleNamespace(list_open=lambda: []),
-        alert_repository=SimpleNamespace(list_pending_price_alerts=lambda: []),
         account_client=SimpleNamespace(get_open_orders=lambda: []),
     )
 

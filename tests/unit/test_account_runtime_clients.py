@@ -24,11 +24,6 @@ def write_env_file(path: Path, **overrides: str) -> Path:
         "OANDA_API_KEY": "api-key",
         "OANDA_ACCOUNT_ID": "account-id",
         "OANDA_ENVIRONMENT": "practice",
-        "TELEGRAM_BOT_TOKEN": "telegram-token",
-        "TELEGRAM_CHAT_ID": "123456789",
-        "TELEGRAM_BOT_PASSWORD": "bot-password",
-        "TELEGRAM_ADMIN_IDS": "111,222",
-        "STREAM_INSTRUMENTS": "EUR_USD,SPX500_USD",
     }
     values.update(overrides)
     path.write_text(

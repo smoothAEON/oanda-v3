@@ -9,9 +9,8 @@ from time import perf_counter
 
 import pandas as pd
 
-from alerts.constants import EVALUATED_INDICATOR_ALERT_TIMEFRAMES
-from alerts.indicator_alert_engine import IndicatorAlertEngine
 from config.settings import Settings, get_settings
+from core.analysis_config import PUBLISHED_SNAPSHOT_TIMEFRAMES
 from core.instrument_registry import SCAN_INSTRUMENTS, get_instrument_spec, normalize_instrument
 from core.logging_setup import get_logger, log_failure
 from core.market_state import MarketStateStore
@@ -32,7 +31,7 @@ from providers.base import MarketDataProvider, PriceSnapshot
 from providers.oanda import OandaMarketDataProvider
 from smc.provider import SmcAdapter
 
-SCAN_TIMEFRAMES: tuple[str, str, str, str] = EVALUATED_INDICATOR_ALERT_TIMEFRAMES
+SCAN_TIMEFRAMES: tuple[str, ...] = PUBLISHED_SNAPSHOT_TIMEFRAMES
 _CALENDAR_CURRENCIES = frozenset({"AUD", "CAD", "CHF", "EUR", "GBP", "JPY", "NZD", "USD"})
 
 
@@ -56,7 +55,6 @@ class ScanOrchestrator:
         market_state: MarketStateStore | None = None,
         smc_adapter: SmcAdapter | None = None,
         indicator_builder: Callable[[pd.DataFrame, str], object] = build_indicator_summary,
-        indicator_alert_engine: IndicatorAlertEngine | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.market_data_provider = market_data_provider or OandaMarketDataProvider(
@@ -72,7 +70,6 @@ class ScanOrchestrator:
             swing_length=self.settings.default_swing_length
         )
         self.indicator_builder = indicator_builder
-        self.indicator_alert_engine = indicator_alert_engine
         self.logger = get_logger(__name__)
 
         self.last_scan_status = ScanCycleStatus(run_kind="full")
@@ -366,21 +363,6 @@ class ScanOrchestrator:
                 reason=str(exc),
             )
             return None
-        if self.indicator_alert_engine is not None:
-            try:
-                if self._should_evaluate_indicator_alerts(freshness, market_open=market_open):
-                    self.indicator_alert_engine.evaluate_for_snapshot(
-                        instrument, timeframe, candles, indicators
-                    )
-            except Exception as exc:
-                log_failure(
-                    self.logger,
-                    "indicator_alert_eval_failed",
-                    exc,
-                    level="warning",
-                    instrument=instrument,
-                    timeframe=timeframe,
-                )
         if current_price is None:
             spread = self._closed_market_spread_context(
                 instrument,
@@ -458,14 +440,6 @@ class ScanOrchestrator:
             source=getattr(price, "source", None),
             fallback_note=getattr(price, "fallback_note", None),
         )
-
-    def _should_evaluate_indicator_alerts(
-        self,
-        freshness: SnapshotFreshness,
-        *,
-        market_open: bool,
-    ) -> bool:
-        return market_open and freshness.is_fresh
 
     def _refresh_market_hours(self) -> MarketHoursOverview:
         overview = coerce_market_hours_overview(self.market_hours_service.get_status())

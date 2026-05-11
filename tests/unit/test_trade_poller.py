@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Thread
@@ -138,36 +137,12 @@ async def test_trade_poller_defers_close_when_trade_detail_is_unavailable(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_trade_poller_dispatches_trade_notifications_and_uses_transaction_reason(tmp_path: Path) -> None:
-    store = TradeStore(db_path=tmp_path / "poller_notifications.json")
+async def test_trade_poller_uses_transaction_reason_without_notifications(tmp_path: Path) -> None:
+    store = TradeStore(db_path=tmp_path / "poller_transaction_reason.json")
     repository = TradeRepository(store=store)
     service = JournalService(repository)
     client = StubAccountClient()
-    sent_messages: list[tuple[int, str]] = []
-
-    class StubRuntimeConfigManager:
-        def trade_push_enabled(self) -> bool:
-            return True
-
-    class StubNotifier:
-        async def send_message(self, *, chat_id: int, text: str) -> None:
-            sent_messages.append((chat_id, text))
-
-    class StubMessageBuilder:
-        def build_trade_opened(self, trade, *, account_currency=None) -> str:
-            return f"opened:{trade.trade_id}:{account_currency}"
-
-        def build_trade_closed(self, trade) -> str:
-            return f"closed:{trade.trade_id}:{trade.close_reason.value}"
-
-    poller = TradePollerTask(
-        client,
-        repository,
-        service,
-        runtime_config_manager=StubRuntimeConfigManager(),
-        notifier=StubNotifier(),
-        message_builder=StubMessageBuilder(),
-    )
+    poller = TradePollerTask(client, repository, service)
 
     try:
         client.current_trades = [
@@ -183,7 +158,6 @@ async def test_trade_poller_dispatches_trade_notifications_and_uses_transaction_
             }
         ]
         await poller.poll_once()
-        await asyncio.sleep(0)
 
         client.current_trades = []
         client.trade_details["trade-1"] = {
@@ -197,11 +171,8 @@ async def test_trade_poller_dispatches_trade_notifications_and_uses_transaction_
             {"id": "9001", "reason": "TAKE_PROFIT_ORDER", "type": "ORDER_FILL"}
         ]
         closed = await poller.poll_once()
-        await asyncio.sleep(0)
 
         assert closed[0].close_reason == CloseReason.TP_HIT
-        assert sent_messages[0][1] == "opened:trade-1:SGD"
-        assert sent_messages[1][1] == "closed:trade-1:TP_HIT"
         assert repository.list_closed()[0].account_currency == "SGD"
     finally:
         store.close()
@@ -289,57 +260,3 @@ def test_trade_poller_run_once_completes_from_scheduler_thread(tmp_path: Path) -
         store.close()
 
 
-@pytest.mark.asyncio
-async def test_trade_poller_notification_failure_does_not_break_polling(tmp_path: Path) -> None:
-    store = TradeStore(db_path=tmp_path / "poller_notify_fail.json")
-    repository = TradeRepository(store=store)
-    service = JournalService(repository)
-    client = StubAccountClient()
-
-    class StubRuntimeConfigManager:
-        def trade_push_enabled(self) -> bool:
-            return True
-
-    class FailingNotifier:
-        async def send_message(self, *, chat_id: int, text: str) -> None:
-            raise RuntimeError("telegram unavailable")
-
-    class StubMessageBuilder:
-        def build_trade_opened(self, trade, *, account_currency=None) -> str:
-            return f"opened:{trade.trade_id}"
-
-        def build_trade_closed(self, trade) -> str:
-            return f"closed:{trade.trade_id}"
-
-    poller = TradePollerTask(
-        client,
-        repository,
-        service,
-        runtime_config_manager=StubRuntimeConfigManager(),
-        notifier=FailingNotifier(),
-        message_builder=StubMessageBuilder(),
-    )
-
-    try:
-        client.current_trades = [
-            {
-                "id": "trade-1",
-                "instrument": "EUR_USD",
-                "currentUnits": 1000.0,
-                "price": 1.1000,
-                "stop_loss_price": 1.0900,
-                "take_profit_price": 1.1200,
-                "gslo_price": None,
-                "openTime": BASE_TIME,
-            }
-        ]
-
-        opened = await poller.poll_once()
-        status = poller.status()
-
-        assert opened[0].trade_id == "trade-1"
-        assert repository.list_open()[0].trade_id == "trade-1"
-        assert status.state == "DEGRADED"
-        assert "telegram unavailable" in (status.last_error or "")
-    finally:
-        store.close()

@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from bot.parsing import normalize_command_instrument, normalize_command_timeframe
+from agent.parsing import normalize_command_instrument, normalize_command_timeframe
 from config.settings import Settings, get_settings
 from core.instrument_registry import INSTRUMENT_REGISTRY, INSTRUMENT_ALIASES
 from core.models import CorrelationResult

@@ -21,10 +21,6 @@ def write_env_file(path: Path, *, tinydb_path: Path) -> Path:
                 "OANDA_API_KEY=api-key",
                 "OANDA_ACCOUNT_ID=account-id",
                 "OANDA_ENVIRONMENT=practice",
-                "TELEGRAM_BOT_TOKEN=telegram-token",
-                "TELEGRAM_CHAT_ID=123456789",
-                "TELEGRAM_BOT_PASSWORD=bot-password",
-                "TELEGRAM_ADMIN_IDS=111,222",
                 f"TINYDB_PATH={tinydb_path.as_posix()}",
                 "JOURNAL_TIMEZONE=Asia/Singapore",
             )

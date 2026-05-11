@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from config.settings import load_settings
 from core.candle_policy import get_timeframe_delta
-from core.enums import AlertStatus, ChartMode, TradeState
+from core.enums import ChartMode, TradeState
 from core.instrument_registry import get_instrument_spec
 from core.market_state import MarketStateStore
 from core.models import (
@@ -22,7 +22,6 @@ from core.models import (
     LiquidityPoolSummary,
     OrderBlockSummary,
     PendingOrder,
-    PriceAlert,
     SnapshotFreshness,
     SmcContextSummary,
     SpreadResult,
@@ -51,10 +50,6 @@ def build_settings(tmp_path: Path):
                 "OANDA_API_KEY=api-key",
                 "OANDA_ACCOUNT_ID=account-id",
                 "OANDA_ENVIRONMENT=practice",
-                "TELEGRAM_BOT_TOKEN=telegram-token",
-                "TELEGRAM_CHAT_ID=123456789",
-                "TELEGRAM_BOT_PASSWORD=bot-password",
-                "TELEGRAM_ADMIN_IDS=111,222",
                 "TINYDB_PATH=data/bot.json",
             ]
         ),
@@ -154,7 +149,6 @@ def build_renderer(**kwargs):
         "market_data_provider": ("market_data_provider", "provider", "data_provider"),
         "scan_orchestrator": ("scan_orchestrator", "orchestrator"),
         "trade_repository": ("trade_repository", "trades", "trade_store"),
-        "alert_repository": ("alert_repository", "alerts", "alert_store"),
         "account_client": ("account_client", "execution_client"),
         "settings": ("settings",),
     }
@@ -182,7 +176,7 @@ def build_request(**overrides):
     }
     if hasattr(renderer_module, "ChartRequest"):
         request_type = renderer_module.ChartRequest
-        selector_keys = {"smc", "trade", "alert", "indicator"}
+        selector_keys = {"smc", "trade", "indicator"}
         selector_payload = {key: overrides[key] for key in selector_keys if key in overrides}
         base_payload.update({key: value for key, value in overrides.items() if key not in selector_keys})
         candidate_payloads = []
@@ -287,21 +281,6 @@ def build_trade(**overrides) -> TradeRecord:
     return TradeRecord.model_validate(payload)
 
 
-def build_alert(**overrides) -> PriceAlert:
-    payload = {
-        "id": 1,
-        "instrument": "EUR_USD",
-        "target_price": 1.1010,
-        "direction": "above",
-        "status": AlertStatus.PENDING,
-        "chat_id": 123,
-        "created_at": BASE_TIME,
-        "fired_at": None,
-    }
-    payload.update(overrides)
-    return PriceAlert.model_validate(payload)
-
-
 def build_pending_order(instrument: str = "EUR_USD") -> PendingOrder:
     return PendingOrder(
         order_id="order-1",
@@ -359,7 +338,6 @@ def test_explicit_selectors_replace_default_bundle(tmp_path: Path) -> None:
     explicit_request = build_request(
         smc=("structure",),
         trade=("positions", "sl", "tp"),
-        alert=("pricealerts",),
         indicator=("ema", "rsi"),
     )
 
@@ -373,14 +351,12 @@ def test_explicit_selectors_replace_default_bundle(tmp_path: Path) -> None:
         "sl",
         "tp",
         "gslo",
-        "pricealerts",
     }
     assert set(selection_keys(explicit_selection)) == {
         "structure",
         "positions",
         "sl",
         "tp",
-        "pricealerts",
         "ema",
         "rsi",
     }
@@ -402,7 +378,6 @@ def test_chart_modes_resolve_distinct_default_overlay_bundles(tmp_path: Path) ->
         "sl",
         "tp",
         "gslo",
-        "pricealerts",
     }
     assert set(selection_keys(get_request_selection(full_request))) == {
         "orderblocks",
@@ -413,7 +388,6 @@ def test_chart_modes_resolve_distinct_default_overlay_bundles(tmp_path: Path) ->
         "sl",
         "tp",
         "gslo",
-        "pricealerts",
         "ema",
         "bollinger",
         "vwap",
@@ -530,14 +504,6 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
                 build_trade(trade_id="other", instrument="SPX500_USD"),
             ]
 
-    class FakeAlertRepository:
-        def list_pending_price_alerts(self):
-            call_log.append("list_pending_price_alerts")
-            return [
-                build_alert(instrument="EUR_USD", target_price=101.5),
-                build_alert(id=2, instrument="SPX500_USD", target_price=2500.0),
-            ]
-
     class FakeAccountClient:
         def get_open_orders(self):
             call_log.append("get_open_orders")
@@ -559,7 +525,6 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
         tmp_path,
         market_data_provider=FakeProvider(),
         trade_repository=FakeTradeRepository(),
-        alert_repository=FakeAlertRepository(),
         account_client=FakeAccountClient(),
         scan_orchestrator=scan_orchestrator,
     )
@@ -573,7 +538,6 @@ def test_renderer_clips_far_overlays_without_expanding_candle_focus(tmp_path: Pa
             instrument="EUR_USD",
             smc=("orderblocks", "structure", "liquidity"),
             trade=("positions", "orders", "sl", "tp", "gslo"),
-            alert=("pricealerts",),
         )
     )
     resolved = as_mapping(payload)
@@ -876,7 +840,6 @@ def test_worker_renderer_uses_mplfinance_plot(tmp_path: Path, monkeypatch) -> No
         liquidity_annotations=(),
         trade_overlays=(),
         order_overlays=(),
-        price_alert_overlays=(),
         omitted_layers=(),
         artifact_path=str(tmp_path / "worker-chart.png"),
     )

@@ -1,19 +1,23 @@
-"""Shared MCP adapters over the live Market Signal Bot runtime."""
+"""Shared MCP adapters over the local Market Signal MCP runtime."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import TypeAdapter
 
-from alerts.alert_repository import EVALUATED_INDICATOR_ALERT_TIMEFRAMES
-from alerts.defaults import INDICATOR_ALERT_DEFAULTS
-from alerts.time_alert_engine import DEFAULT_TIME_ALERT_TIMEZONE, next_fixed_alert_fire_at, next_session_fire_at
-from bot.pricing import resolve_price_quote
-from bot.parsing import (
+from agent.runtime import AgentRuntime
+from agent.runtime_views import (
+    calendar_window_bounds,
+    current_macro_status,
+    current_market_hours_overview,
+)
+from agent.pricing import ResolvedPriceQuote
+from agent.parsing import (
     TRACKED_CALENDAR_CURRENCIES,
     OrderBlockMitigationFilter,
     normalize_broker_instrument,
@@ -21,21 +25,16 @@ from bot.parsing import (
     normalize_command_timeframe,
     normalize_order_block_mitigation_status,
 )
-from bot.runtime import BotRuntime
-from bot.runtime_views import (
-    build_runtime_health,
-    calendar_window_bounds,
-    current_macro_status,
-    current_market_hours_overview,
-)
+from charting.renderer import ChartRequest
 from config.settings import Settings
+from core.analysis_config import PUBLISHED_SNAPSHOT_TIMEFRAMES
 from core.candle_policy import (
     OANDA_CANDLE_GRANULARITIES,
     OANDA_MAX_CANDLE_COUNT,
     normalize_oanda_candle_granularity,
 )
-from core.enums import AlertStatus, IndicatorKind, TimeAlertKind, TradeState
-from core.models import AlertHistoryPage, SpreadHistoryEntry, SpreadResult, SpreadSnapshot
+from core.enums import TradeState
+from core.models import SpreadHistoryEntry, SpreadResult, SpreadSnapshot
 from core.instrument_registry import (
     INSTRUMENT_ALIASES,
     INSTRUMENT_REGISTRY,
@@ -53,16 +52,11 @@ from providers.base import PriceSnapshot
 
 RefreshPolicy = Literal["never", "if_missing", "always"]
 CalendarScope = Literal["today", "week"]
-IndicatorCondition = Literal["above", "below", "cross_up", "cross_down"]
-TimeAlertCreateKind = Literal["at", "session"]
 OhlcPriceComponent = Literal["mid", "bid_ask"]
 
 _JSON_ADAPTER = TypeAdapter(Any)
 _COMPACT_INDICATOR_NAMES = frozenset({"rsi", "atr", "ema_20", "ema_50", "adx"})
-_SUPPORTED_INDICATOR_CONDITIONS = frozenset({"above", "below", "cross_up", "cross_down"})
-_SUPPORTED_TIME_ALERT_SCHEDULES = frozenset({"daily", "once"})
-_SUPPORTED_TIME_ALERT_SESSIONS = frozenset({"london", "newyork", "market_open"})
-_PUBLISHED_SNAPSHOT_TIMEFRAMES = frozenset(EVALUATED_INDICATOR_ALERT_TIMEFRAMES)
+_PUBLISHED_SNAPSHOT_TIMEFRAMES = frozenset(PUBLISHED_SNAPSHOT_TIMEFRAMES)
 
 
 class BotMcpService:
@@ -71,7 +65,7 @@ class BotMcpService:
     def __init__(
         self,
         *,
-        runtime: BotRuntime,
+        runtime: AgentRuntime,
         settings: Settings | None = None,
         yfinance_service: YFinanceService | None = None,
     ) -> None:
@@ -81,31 +75,43 @@ class BotMcpService:
         self._mae_mfe_service: MaeMfeService | None = None
         self._trade_stats_service: TradeStatsService | None = None
         self._correlation_service: CorrelationService | None = None
-        self.default_chat_id = (
-            self.settings.telegram_chat_id
-            if self.settings.mcp_default_chat_id is None
-            else self.settings.mcp_default_chat_id
-        )
 
     async def get_runtime_status(self) -> dict[str, Any]:
-        status = await asyncio.to_thread(build_runtime_health, self.runtime)
-        return self._jsonable(status)
+        market_hours = await self._run_blocking(current_market_hours_overview, self.runtime)
+        macro = await self._run_blocking(current_macro_status, self.runtime)
+        return self._jsonable(
+            {
+                "mode": "local_mcp_stdio",
+                "started_at": self.runtime.started_at,
+                "background_tasks": False,
+                "scheduler": None,
+                "stream": None,
+                "last_scan": self.runtime.scan_orchestrator.last_scan_status,
+                "calendar": self.runtime.scan_orchestrator.calendar_status,
+                "market_hours": market_hours,
+                "macro": macro,
+                "tinydb_path": str(self.settings.tinydb_path),
+            }
+        )
 
     async def get_market_status(self) -> dict[str, Any]:
-        market_hours = await asyncio.to_thread(current_market_hours_overview, self.runtime)
-        macro_status = await asyncio.to_thread(current_macro_status, self.runtime)
-        stream_status = self.runtime.stream_task.stream_status()
+        market_hours = await self._run_blocking(current_market_hours_overview, self.runtime)
+        macro_status = await self._run_blocking(current_macro_status, self.runtime)
         return self._jsonable(
             {
                 "market_hours": market_hours,
-                "stream": stream_status,
+                "stream": None,
                 "macro": macro_status,
                 "calendar": self.runtime.scan_orchestrator.calendar_status,
             }
         )
 
     async def get_macro_context(self, force: bool = False) -> dict[str, Any]:
-        status = await asyncio.to_thread(self.runtime.scan_orchestrator.refresh_macro, force=force)
+        status = await self._run_blocking(
+            self.runtime.scan_orchestrator.refresh_macro,
+            force=force,
+            write=True,
+        )
         return self._jsonable(status)
 
     async def search_yfinance_tickers(
@@ -183,7 +189,7 @@ class BotMcpService:
         orchestrator = self.runtime.scan_orchestrator
 
         if force or orchestrator.calendar_status.calendar_version == 0:
-            status = await asyncio.to_thread(orchestrator.refresh_calendar, force=True)
+            status = await self._run_blocking(orchestrator.refresh_calendar, force=True, write=True)
         else:
             status = orchestrator.calendar_status
 
@@ -210,15 +216,20 @@ class BotMcpService:
         )
 
     async def scan_all(self, force: bool = False) -> dict[str, Any]:
-        status = await asyncio.to_thread(self.runtime.scan_orchestrator.scan_all, force=force)
+        status = await self._run_blocking(
+            self.runtime.scan_orchestrator.scan_all,
+            force=force,
+            write=True,
+        )
         return self._jsonable(status)
 
     async def scan_instrument(self, instrument: str, force: bool = False) -> dict[str, Any]:
         resolved_instrument = normalize_command_instrument(instrument)
-        snapshots = await asyncio.to_thread(
+        snapshots = await self._run_blocking(
             self.runtime.scan_orchestrator.refresh_instrument,
             resolved_instrument,
             force=force,
+            write=True,
         )
         return self._jsonable(
             self._sanitize_mcp_payload(
@@ -241,11 +252,12 @@ class BotMcpService:
     ) -> dict[str, Any]:
         resolved_instrument = normalize_command_instrument(instrument)
         resolved_timeframe = self._normalize_snapshot_timeframe(timeframe)
-        snapshot = await asyncio.to_thread(
+        snapshot = await self._run_blocking(
             self.runtime.scan_orchestrator.refresh_snapshot,
             resolved_instrument,
             resolved_timeframe,
             force=force,
+            write=True,
         )
         if snapshot is None:
             raise ValueError(f"Data unavailable for {resolved_instrument} {resolved_timeframe}.")
@@ -292,13 +304,15 @@ class BotMcpService:
 
     async def get_price(self, instrument: str, prefer_live: bool = False) -> dict[str, Any]:
         resolved_instrument = normalize_broker_instrument(instrument)
-        quote = await resolve_price_quote(
-            instrument=resolved_instrument,
-            account_client=self.runtime.account_client,
-            stream_task=self.runtime.stream_task,
-            prefer_live=prefer_live,
-            on_resolved=self._quote_recorder_callback(reason="mcp_get_price"),
+        quote = await self._resolve_rest_price_quote(
+            resolved_instrument,
+            fallback_note=(
+                "live stream is not available in the local MCP runtime; REST pricing used"
+                if prefer_live
+                else None
+            ),
         )
+        self._quote_recorder_callback(reason="mcp_get_price")(quote)
         return self._jsonable(
             {
                 "instrument": resolved_instrument,
@@ -475,11 +489,12 @@ class BotMcpService:
         resolved_timeframe = validate_vwap_timeframe(normalize_command_timeframe(timeframe))
         resolved_bands = normalize_vwap_bands(bands)
         count = resolve_vwap_candle_count(resolved_timeframe, anchor)
-        candles = await asyncio.to_thread(
+        candles = await self._run_blocking(
             self.runtime.market_data_provider.get_candles,
             resolved_instrument,
             resolved_timeframe,
             count,
+            write=True,
         )
         freshness = await asyncio.to_thread(
             self.runtime.market_data_provider.get_candle_freshness,
@@ -527,6 +542,7 @@ class BotMcpService:
         end_date: str | None = None,
         limit: int = 10,
     ) -> dict[str, Any]:
+        await self._sync_account_state_if_available()
         if limit <= 0:
             raise ValueError("limit must be a positive integer.")
         resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
@@ -551,6 +567,7 @@ class BotMcpService:
         )
 
     async def get_journal_trade(self, trade_id: str) -> dict[str, Any]:
+        await self._sync_account_state_if_available()
         trade = await asyncio.to_thread(self.runtime.trade_repository.get, trade_id)
         if trade is None:
             raise ValueError(f"Trade {trade_id} not found.")
@@ -578,6 +595,7 @@ class BotMcpService:
         )
 
     async def get_mae_mfe(self, trade_id: str | None = None) -> dict[str, Any]:
+        await self._sync_account_state_if_available()
         if trade_id is not None:
             return await self.get_journal_trade(trade_id)
 
@@ -622,6 +640,7 @@ class BotMcpService:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> dict[str, Any]:
+        await self._sync_trade_history_if_available()
         resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
         result = await asyncio.to_thread(
             self.runtime.trade_history_service.get_trade_history,
@@ -634,376 +653,6 @@ class BotMcpService:
         )
         return self._jsonable(result)
 
-    async def create_price_alert(
-        self,
-        instrument: str,
-        target_price: float,
-        direction: Literal["above", "below"],
-        note: str | None = None,
-    ) -> dict[str, Any]:
-        resolved_instrument = normalize_broker_instrument(instrument)
-        payload = {
-            "id": None,
-            "instrument": resolved_instrument,
-            "target_price": target_price,
-            "direction": self._normalize_price_direction(direction),
-            "status": AlertStatus.PENDING,
-            "chat_id": self.default_chat_id,
-            "notes": note,
-            "created_at": datetime.now(timezone.utc),
-            "fired_at": None,
-        }
-        created = await asyncio.to_thread(self.runtime.alert_repository.upsert_price_alert, payload)
-        await self._refresh_price_alert_stream_watchlist()
-        return self._jsonable(created)
-
-    async def list_price_alerts(self) -> dict[str, Any]:
-        alerts = await asyncio.to_thread(
-            self.runtime.alert_repository.list_pending_price_alerts_for_chat,
-            self.default_chat_id,
-        )
-        return self._jsonable({"chat_id": self.default_chat_id, "alerts": alerts})
-
-    async def clear_price_alert(self, alert_id: int) -> dict[str, Any]:
-        cleared = await asyncio.to_thread(
-            self.runtime.alert_repository.cancel_price_alert_for_chat,
-            alert_id,
-            self.default_chat_id,
-        )
-        if cleared is None:
-            raise ValueError(f"Price alert {alert_id} not found for the default MCP chat.")
-        await self._refresh_price_alert_stream_watchlist()
-        return self._jsonable(cleared)
-
-    async def clear_all_price_alerts(
-        self,
-        confirm: bool,
-        instrument: str | None = None,
-    ) -> dict[str, Any]:
-        if not confirm:
-            raise ValueError("clear_all_price_alerts requires confirm=true.")
-        resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
-        cleared = await asyncio.to_thread(
-            self.runtime.alert_repository.cancel_price_alerts_for_chat,
-            self.default_chat_id,
-            instrument=resolved_instrument,
-        )
-        await self._refresh_price_alert_stream_watchlist()
-        return self._jsonable(
-            {
-                "chat_id": self.default_chat_id,
-                "instrument": resolved_instrument,
-                "cleared_count": len(cleared),
-                "cleared_alerts": cleared,
-            }
-        )
-
-    async def replace_alert_grid(
-        self,
-        instrument: str,
-        alerts: list[dict[str, Any]],
-        confirm: bool,
-    ) -> dict[str, Any]:
-        if not confirm:
-            raise ValueError("replace_alert_grid requires confirm=true.")
-        resolved_instrument = normalize_broker_instrument(instrument)
-        existing = await asyncio.to_thread(
-            self.runtime.alert_repository.list_pending_price_alerts_for_chat,
-            self.default_chat_id,
-        )
-        cleared_count = len([alert for alert in existing if alert.instrument == resolved_instrument])
-        payloads = [self._normalize_price_grid_alert(alert) for alert in alerts]
-        created = await asyncio.to_thread(
-            self.runtime.alert_repository.replace_price_alert_grid_for_chat,
-            self.default_chat_id,
-            instrument=resolved_instrument,
-            alerts=payloads,
-        )
-        await self._refresh_price_alert_stream_watchlist()
-        return self._jsonable(
-            {
-                "chat_id": self.default_chat_id,
-                "instrument": resolved_instrument,
-                "cleared_count": cleared_count,
-                "created_count": len(created),
-                "alerts": created,
-            }
-        )
-
-    async def create_indicator_alert(
-        self,
-        instrument: str,
-        timeframe: str,
-        indicator: str,
-        condition: IndicatorCondition,
-        threshold: float | None = None,
-        note: str | None = None,
-        repeat: bool = False,
-        cooloff_minutes: int | None = None,
-    ) -> dict[str, Any]:
-        resolved_instrument = normalize_command_instrument(instrument)
-        resolved_timeframe = normalize_command_timeframe(timeframe)
-        resolved_indicator = self._normalize_indicator(indicator)
-        resolved_condition = self._normalize_indicator_condition(condition)
-        payload = {
-            "id": None,
-            "instrument": resolved_instrument,
-            "granularity": resolved_timeframe,
-            "indicator": resolved_indicator,
-            "condition": resolved_condition,
-            "threshold": threshold,
-            "status": AlertStatus.PENDING,
-            "repeat": repeat,
-            "cooloff_minutes": cooloff_minutes,
-            "chat_id": self.default_chat_id,
-            "notes": note,
-            "created_at": datetime.now(timezone.utc),
-            "fired_at": None,
-        }
-        created = await asyncio.to_thread(self.runtime.alert_repository.upsert_indicator_alert, payload)
-        return self._jsonable(created)
-
-    async def seed_default_indicator_alerts(self) -> dict[str, Any]:
-        chat_id = self.default_chat_id
-        alert_repository = self.runtime.alert_repository
-        now = datetime.now(timezone.utc)
-        existing_keys = {
-            (
-                alert.instrument,
-                alert.granularity,
-                alert.indicator,
-                alert.condition,
-                None if alert.threshold is None else float(alert.threshold),
-            )
-            for alert in await asyncio.to_thread(
-                alert_repository.list_active_indicator_alerts_for_chat,
-                chat_id,
-            )
-        }
-
-        created: list[Any] = []
-        defaults = [
-            (IndicatorKind.RSI, "above", 70.0, "RSI overbought"),
-            (IndicatorKind.RSI, "below", 30.0, "RSI oversold"),
-            (IndicatorKind.STOCH, "above", 80.0, "STOCH overbought"),
-            (IndicatorKind.STOCH, "below", 20.0, "STOCH oversold"),
-        ]
-        for instrument_symbol in SCAN_INSTRUMENTS:
-            for indicator_kind, condition, threshold, note in defaults:
-                key = (instrument_symbol, "H1", indicator_kind, condition, threshold)
-                if key in existing_keys:
-                    continue
-                created.append(
-                    await asyncio.to_thread(
-                        alert_repository.upsert_indicator_alert,
-                        {
-                            "id": None,
-                            "instrument": instrument_symbol,
-                            "granularity": "H1",
-                            "indicator": indicator_kind,
-                            "condition": condition,
-                            "threshold": threshold,
-                            "status": AlertStatus.PENDING,
-                            "repeat": False,
-                            "cooloff_minutes": None,
-                            "chat_id": chat_id,
-                            "notes": note,
-                            "created_at": now,
-                            "fired_at": None,
-                        },
-                    )
-                )
-                existing_keys.add(key)
-
-        for instrument_symbol in SCAN_INSTRUMENTS:
-            for timeframe_name in EVALUATED_INDICATOR_ALERT_TIMEFRAMES:
-                for condition, note in (("cross_up", "SMA bullish cross"), ("cross_down", "SMA bearish cross")):
-                    key = (instrument_symbol, timeframe_name, IndicatorKind.SMA_CROSS, condition, None)
-                    if key in existing_keys:
-                        continue
-                    created.append(
-                        await asyncio.to_thread(
-                            alert_repository.upsert_indicator_alert,
-                            {
-                                "id": None,
-                                "instrument": instrument_symbol,
-                                "granularity": timeframe_name,
-                                "indicator": IndicatorKind.SMA_CROSS,
-                                "condition": condition,
-                                "threshold": None,
-                                "status": AlertStatus.PENDING,
-                                "repeat": False,
-                                "cooloff_minutes": None,
-                                "chat_id": chat_id,
-                                "notes": note,
-                                "created_at": now,
-                                "fired_at": None,
-                            },
-                        )
-                    )
-                    existing_keys.add(key)
-
-        return self._jsonable({"chat_id": chat_id, "created_count": len(created), "created_alerts": created})
-
-    async def list_indicator_alerts(self) -> dict[str, Any]:
-        alerts = await asyncio.to_thread(
-            self.runtime.alert_repository.list_active_indicator_alerts_for_chat,
-            self.default_chat_id,
-        )
-        return self._jsonable({"chat_id": self.default_chat_id, "alerts": alerts})
-
-    async def clear_indicator_alert(self, alert_id: int) -> dict[str, Any]:
-        cleared = await asyncio.to_thread(
-            self.runtime.alert_repository.cancel_indicator_alert_for_chat,
-            alert_id,
-            self.default_chat_id,
-        )
-        if cleared is None:
-            raise ValueError(f"Indicator alert {alert_id} not found for the default MCP chat.")
-        return self._jsonable(cleared)
-
-    async def clear_all_indicator_alerts(
-        self,
-        confirm: bool,
-        instrument: str | None = None,
-        timeframe: str | None = None,
-        indicator: str | None = None,
-    ) -> dict[str, Any]:
-        if not confirm:
-            raise ValueError("clear_all_indicator_alerts requires confirm=true.")
-        resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
-        resolved_timeframe = None if timeframe is None else normalize_command_timeframe(timeframe)
-        resolved_indicator = None if indicator is None else self._normalize_indicator(indicator).value
-        cleared = await asyncio.to_thread(
-            self.runtime.alert_repository.cancel_indicator_alerts_for_chat,
-            self.default_chat_id,
-            instrument=resolved_instrument,
-            granularity=resolved_timeframe,
-            indicator=resolved_indicator,
-        )
-        return self._jsonable(
-            {
-                "chat_id": self.default_chat_id,
-                "instrument": resolved_instrument,
-                "timeframe": resolved_timeframe,
-                "indicator": resolved_indicator,
-                "cleared_count": len(cleared),
-                "cleared_alerts": cleared,
-            }
-        )
-
-    async def create_time_alert(
-        self,
-        kind: TimeAlertCreateKind,
-        local_time: str | None = None,
-        schedule: str | None = None,
-        session_name: str | None = None,
-        note: str | None = None,
-    ) -> dict[str, Any]:
-        resolved_kind = str(kind).strip().lower()
-        now = datetime.now(timezone.utc)
-        if resolved_kind == "at":
-            if local_time is None:
-                raise ValueError("local_time is required when kind='at'.")
-            if " " in local_time.strip():
-                resolved_schedule = "once"
-            else:
-                resolved_schedule = "daily" if schedule is None else str(schedule).strip().lower()
-                if resolved_schedule not in _SUPPORTED_TIME_ALERT_SCHEDULES:
-                    raise ValueError("Fixed time alerts support 'daily' or 'once' schedules only.")
-            next_fire_at = next_fixed_alert_fire_at(
-                local_time,
-                now_utc=now,
-                timezone_name=DEFAULT_TIME_ALERT_TIMEZONE,
-            )
-            payload = {
-                "id": None,
-                "chat_id": self.default_chat_id,
-                "kind": TimeAlertKind.FIXED_TIME,
-                "status": "ACTIVE",
-                "schedule": resolved_schedule,
-                "timezone_name": DEFAULT_TIME_ALERT_TIMEZONE,
-                "local_time": local_time,
-                "session_name": None,
-                "note": note,
-                "created_at": now,
-                "next_fire_at": next_fire_at,
-                "last_fired_at": None,
-            }
-        elif resolved_kind == "session":
-            if session_name is None:
-                raise ValueError("session_name is required when kind='session'.")
-            resolved_session = str(session_name).strip().lower()
-            if resolved_session not in _SUPPORTED_TIME_ALERT_SESSIONS:
-                raise ValueError("session_name must be london, newyork, or market_open.")
-            next_fire_at = next_session_fire_at(resolved_session, now_utc=now)
-            payload = {
-                "id": None,
-                "chat_id": self.default_chat_id,
-                "kind": TimeAlertKind.SESSION,
-                "status": "ACTIVE",
-                "schedule": "session",
-                "timezone_name": DEFAULT_TIME_ALERT_TIMEZONE,
-                "local_time": None,
-                "session_name": resolved_session,
-                "note": note,
-                "created_at": now,
-                "next_fire_at": next_fire_at,
-                "last_fired_at": None,
-            }
-        else:
-            raise ValueError("kind must be 'at' or 'session'.")
-        created = await asyncio.to_thread(self.runtime.alert_repository.upsert_time_alert, payload)
-        return self._jsonable(created)
-
-    async def list_time_alerts(self) -> dict[str, Any]:
-        alerts = await asyncio.to_thread(
-            self.runtime.alert_repository.list_active_time_alerts_for_chat,
-            self.default_chat_id,
-        )
-        return self._jsonable({"chat_id": self.default_chat_id, "alerts": alerts})
-
-    async def clear_time_alert(self, alert_id: int) -> dict[str, Any]:
-        cleared = await asyncio.to_thread(
-            self.runtime.alert_repository.cancel_time_alert_for_chat,
-            alert_id,
-            self.default_chat_id,
-        )
-        if cleared is None:
-            raise ValueError(f"Time alert {alert_id} not found for the default MCP chat.")
-        return self._jsonable(cleared)
-
-    async def list_alert_history(
-        self,
-        alert_type: Literal["all", "price", "indicator", "time"] = "all",
-        instrument: str | None = None,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        limit: int = 50,
-    ) -> dict[str, Any]:
-        resolved_alert_type = self._normalize_alert_history_type(alert_type)
-        resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
-        window_start_utc, window_end_utc = self._resolve_optional_date_window(start_date, end_date)
-        entries = await asyncio.to_thread(
-            self.runtime.alert_repository.list_alert_history,
-            chat_id=self.default_chat_id,
-            alert_type=resolved_alert_type,
-            instrument=resolved_instrument,
-            start_utc=window_start_utc,
-            end_utc=window_end_utc,
-            limit=limit,
-        )
-        page = AlertHistoryPage(
-            alert_type=resolved_alert_type,
-            instrument=resolved_instrument,
-            window_start_utc=window_start_utc,
-            window_end_utc=window_end_utc,
-            returned_count=len(entries),
-            limit=limit,
-            entries=tuple(entries),
-        )
-        return self._jsonable(page)
-
     async def get_trade_stats(
         self,
         period: str = "day",
@@ -1011,6 +660,7 @@ class BotMcpService:
         end_date: str | None = None,
         instrument: str | None = None,
     ) -> dict[str, Any]:
+        await self._sync_trade_history_if_available()
         resolved_instrument = None if instrument is None else normalize_broker_instrument(instrument)
         report = await asyncio.to_thread(
             self._trade_stats_service_for_runtime().get_trade_stats,
@@ -1027,19 +677,21 @@ class BotMcpService:
         include_history: bool = False,
         history_limit: int = 20,
         prefer_live: bool = True,
-        require_live: bool = True,
+        require_live: bool = False,
     ) -> dict[str, Any]:
         if history_limit <= 0:
             raise ValueError("history_limit must be a positive integer.")
         resolved_instrument = normalize_command_instrument(instrument)
-        quote = await resolve_price_quote(
-            instrument=resolved_instrument,
-            account_client=self.runtime.account_client,
-            stream_task=self.runtime.stream_task,
-            prefer_live=prefer_live,
+        if require_live:
+            raise ValueError("Live stream pricing is not available in the local MCP runtime.")
+        quote = await self._resolve_rest_price_quote(
+            resolved_instrument,
+            fallback_note=(
+                "live stream is not available in the local MCP runtime; REST pricing used"
+                if prefer_live
+                else None
+            ),
         )
-        if require_live and quote.source != "live_stream":
-            raise ValueError("Live stream quote unavailable or stale for spread snapshot.")
         price_snapshot = PriceSnapshot(
             instrument=resolved_instrument,
             bid=quote.bid,
@@ -1097,14 +749,131 @@ class BotMcpService:
         )
         return self._jsonable(result)
 
+    async def render_chart(
+        self,
+        instrument: str,
+        timeframe: str = "H1",
+        mode: Literal["compact", "balanced", "full"] = "balanced",
+        count: int = 500,
+        style: Literal["candlestick", "line"] = "candlestick",
+        overlays: list[str] | None = None,
+        smc: list[str] | None = None,
+        trade: list[str] | None = None,
+        indicator: list[str] | None = None,
+    ) -> dict[str, Any]:
+        await self._sync_account_state_if_available()
+        request = ChartRequest.model_validate(
+            {
+                "instrument": instrument,
+                "timeframe": timeframe,
+                "mode": mode,
+                "count": count,
+                "style": style,
+                "overlays": overlays or (),
+                "smc": smc or (),
+                "trade": trade or (),
+                "indicator": indicator or (),
+            }
+        )
+        result = await self._run_blocking(
+            self.runtime.chart_renderer.render,
+            request,
+            write=True,
+        )
+        path = result.artifact.path.resolve()
+        return self._jsonable(
+            {
+                "instrument": request.instrument,
+                "timeframe": request.timeframe,
+                "mode": request.mode.value,
+                "style": request.style.value,
+                "count": request.count,
+                "path": str(path),
+                "exists": path.exists(),
+                "warning": result.warning_text,
+                "omitted_layers": result.omitted_layers,
+                "overlay_selection": result.overlay_selection,
+            }
+        )
+
+    async def export_candles(
+        self,
+        instrument: str,
+        timeframes: list[str] | None = None,
+        count: int | None = None,
+        start_utc: str | None = None,
+        end_utc: str | None = None,
+    ) -> dict[str, Any]:
+        instruments = (
+            tuple(SCAN_INSTRUMENTS)
+            if str(instrument).strip().lower() == "all"
+            else (normalize_broker_instrument(instrument),)
+        )
+        resolved_timeframes = tuple(
+            normalize_oanda_candle_granularity(item)
+            for item in (timeframes or list(PUBLISHED_SNAPSHOT_TIMEFRAMES))
+        )
+        resolved_count = None if count is None else self._resolve_raw_candle_count(count)
+        start_dt = self._parse_optional_utc_datetime(start_utc)
+        end_dt = self._parse_optional_utc_datetime(end_utc)
+        if (start_dt is None) != (end_dt is None):
+            raise ValueError("start_utc and end_utc must be provided together.")
+        if start_dt is not None and end_dt is not None and end_dt <= start_dt:
+            raise ValueError("end_utc must be after start_utc.")
+
+        export_dir = self._export_directory()
+        rows: list[dict[str, Any]] = []
+        for resolved_instrument in instruments:
+            for resolved_timeframe in resolved_timeframes:
+                if start_dt is None or end_dt is None:
+                    frame = await self.runtime.account_client.get_bid_ask_candles(
+                        resolved_instrument,
+                        resolved_timeframe,
+                        resolved_count or self.settings.default_candle_count,
+                    )
+                    request_mode = "count"
+                else:
+                    frame = await self.runtime.account_client.get_bid_ask_candles_range(
+                        resolved_instrument,
+                        resolved_timeframe,
+                        start_dt,
+                        end_dt,
+                    )
+                    request_mode = "range"
+
+                file_path = export_dir / f"{resolved_instrument}_{resolved_timeframe}_bid_ask.csv"
+                frame.to_csv(file_path, index=False)
+                rows.append(
+                    {
+                        "instrument": resolved_instrument,
+                        "timeframe": resolved_timeframe,
+                        "request_mode": request_mode,
+                        "requested_count": resolved_count,
+                        "start_utc": start_dt,
+                        "end_utc": end_dt,
+                        "row_count": len(frame),
+                        "path": str(file_path.resolve()),
+                        "first_candle": None if frame.empty else frame["time"].iloc[0].to_pydatetime(),
+                        "last_candle": None if frame.empty else frame["time"].iloc[-1].to_pydatetime(),
+                    }
+                )
+
+        return self._jsonable(
+            {
+                "export_dir": str(export_dir.resolve()),
+                "file_count": len(rows),
+                "files": rows,
+            }
+        )
+
     @staticmethod
     def capabilities_payload() -> dict[str, Any]:
         return {
-            "name": "market-signal-bot-v3-mcp",
-            "transport": "streamable-http",
+            "name": "market-signal-mcp",
+            "transport": "stdio",
             "raw_oanda_candle_granularities": list(OANDA_CANDLE_GRANULARITIES),
             "raw_oanda_candle_max_count": OANDA_MAX_CANDLE_COUNT,
-            "published_snapshot_timeframes": list(EVALUATED_INDICATOR_ALERT_TIMEFRAMES),
+            "published_snapshot_timeframes": list(PUBLISHED_SNAPSHOT_TIMEFRAMES),
             "surfaces": {
                 "reads": [
                     "runtime_status",
@@ -1124,25 +893,23 @@ class BotMcpService:
                     "journal",
                     "trade_history",
                     "trade_stats",
-                    "alert_history",
                     "correlation",
+                    "chart_rendering",
+                    "csv_exports",
                 ],
                 "writes": [
                     "scan_all",
                     "scan_instrument",
                     "refresh_snapshot",
-                    "price_alerts",
-                    "price_alert_grids",
-                    "indicator_alerts",
-                    "time_alerts",
+                    "journal_sync",
+                    "trade_history_sync",
+                    "chart_artifacts",
+                    "csv_exports",
                 ],
                 "deferred": [
-                    "chart_rendering",
-                    "csv_export",
                     "runtime_config_mutation",
                     "tradehistory_backfill",
                     "trade_label_write",
-                    "telegram_session_auth",
                 ],
             },
         }
@@ -1168,27 +935,34 @@ class BotMcpService:
         }
 
     @staticmethod
-    def alert_defaults_payload() -> dict[str, Any]:
-        return {
-            "indicator_defaults": {
-                f"{indicator.value}:{condition}": threshold
-                for (indicator, condition), threshold in INDICATOR_ALERT_DEFAULTS.items()
-            },
-            "default_seed_plan": {
-                "momentum_h1": [
-                    "RSI above 70",
-                    "RSI below 30",
-                    "STOCH above 80",
-                    "STOCH below 20",
-                ],
-                "sma_cross_timeframes": list(EVALUATED_INDICATOR_ALERT_TIMEFRAMES),
-            },
-            "time_alert_timezone": DEFAULT_TIME_ALERT_TIMEZONE,
-        }
-
-    @staticmethod
     def tool_surface_payload(tool_specs: list[dict[str, str]]) -> dict[str, Any]:
         return {"tools": tool_specs}
+
+    async def _run_blocking(
+        self,
+        fn,
+        *args,
+        write: bool = False,
+        **kwargs,
+    ):
+        runner = getattr(self.runtime, "run_blocking", None)
+        if callable(runner):
+            return await runner(fn, *args, write=write, **kwargs)
+
+        def call():
+            return fn(*args, **kwargs)
+
+        return await asyncio.to_thread(call)
+
+    async def _sync_account_state_if_available(self) -> None:
+        sync = getattr(self.runtime, "sync_account_state", None)
+        if callable(sync):
+            await sync()
+
+    async def _sync_trade_history_if_available(self) -> None:
+        sync = getattr(self.runtime, "sync_trade_history", None)
+        if callable(sync):
+            await sync()
 
     async def _resolve_snapshot(
         self,
@@ -1202,10 +976,11 @@ class BotMcpService:
         policy = self._normalize_refresh_policy(refresh_policy)
         snapshot = self.runtime.market_state.get_snapshot(resolved_instrument, resolved_timeframe)
         if policy == "always" or (snapshot is None and policy == "if_missing"):
-            refreshed = await asyncio.to_thread(
+            refreshed = await self._run_blocking(
                 self.runtime.scan_orchestrator.refresh_snapshot,
                 resolved_instrument,
                 resolved_timeframe,
+                write=True,
             )
             if refreshed is not None:
                 snapshot = refreshed
@@ -1235,12 +1010,26 @@ class BotMcpService:
             }
         return pricing_map
 
-    async def _resolve_trade_price_quote(self, instrument: str) -> dict[str, Any]:
-        quote = await resolve_price_quote(
+    async def _resolve_rest_price_quote(
+        self,
+        instrument: str,
+        *,
+        fallback_note: str | None = None,
+    ) -> ResolvedPriceQuote:
+        snapshot = await self.runtime.account_client.get_pricing(instrument)
+        return ResolvedPriceQuote(
             instrument=instrument,
-            account_client=self.runtime.account_client,
-            stream_task=self.runtime.stream_task,
-            prefer_live=True,
+            bid=snapshot.bid,
+            ask=snapshot.ask,
+            spread_pips=snapshot.spread_pips,
+            fetched_at=snapshot.fetched_at,
+            source="rest_pricing",
+            fallback_note=fallback_note,
+        )
+
+    async def _resolve_trade_price_quote(self, instrument: str) -> dict[str, Any]:
+        quote = await self._resolve_rest_price_quote(
+            instrument,
         )
         return {
             "bid": quote.bid,
@@ -1248,12 +1037,6 @@ class BotMcpService:
             "source": quote.source,
             "fallback_note": quote.fallback_note,
         }
-
-    async def _refresh_price_alert_stream_watchlist(self) -> None:
-        stream_task = getattr(self.runtime, "stream_task", None)
-        refresh = getattr(stream_task, "refresh_price_alert_instruments", None)
-        if callable(refresh):
-            await asyncio.to_thread(refresh)
 
     def _enrich_position(self, position, current_mid_price: float | None) -> dict[str, Any]:
         pip_size = get_pip_size(position.instrument)
@@ -1612,32 +1395,23 @@ class BotMcpService:
         )
         return window.start_utc, window.end_utc
 
-    @staticmethod
-    def _normalize_alert_history_type(value: str) -> str:
-        normalized = str(value).strip().lower()
-        if normalized not in {"all", "price", "indicator", "time"}:
-            raise ValueError("alert_type must be 'all', 'price', 'indicator', or 'time'.")
-        return normalized
+    def _export_directory(self) -> Path:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        export_dir = self.settings.tinydb_path.parent / "exports" / timestamp
+        export_dir.mkdir(parents=True, exist_ok=True)
+        return export_dir
 
-    def _normalize_price_grid_alert(self, alert: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(alert, dict):
-            raise ValueError("replace_alert_grid alerts must be objects.")
-        try:
-            target_price = float(alert["target_price"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError("Each grid alert must define a numeric target_price.") from exc
-        if target_price <= 0:
-            raise ValueError("Each grid alert target_price must be positive.")
-        direction = self._normalize_price_direction(str(alert.get("direction", "")))
-        note = alert.get("note")
-        if note is not None:
-            note = str(note).strip() or None
-        return {
-            "id": None,
-            "target_price": target_price,
-            "direction": direction,
-            "notes": note,
-        }
+    @staticmethod
+    def _parse_optional_utc_datetime(value: str | None) -> datetime | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
 
     @staticmethod
     def _normalize_refresh_policy(value: RefreshPolicy | str) -> RefreshPolicy:
@@ -1670,27 +1444,6 @@ class BotMcpService:
         return tuple(normalized)
 
     @staticmethod
-    def _normalize_price_direction(direction: str) -> Literal["above", "below"]:
-        normalized = str(direction).strip().lower()
-        if normalized not in {"above", "below"}:
-            raise ValueError("direction must be 'above' or 'below'.")
-        return normalized  # type: ignore[return-value]
-
-    @staticmethod
-    def _normalize_indicator(indicator: str) -> IndicatorKind:
-        try:
-            return IndicatorKind(str(indicator).strip().upper())
-        except ValueError as exc:
-            raise ValueError("indicator must be RSI, STOCH, MACD, or SMA_CROSS.") from exc
-
-    @staticmethod
-    def _normalize_indicator_condition(condition: IndicatorCondition | str) -> IndicatorCondition:
-        normalized = str(condition).strip().lower()
-        if normalized not in _SUPPORTED_INDICATOR_CONDITIONS:
-            raise ValueError("condition must be above, below, cross_up, or cross_down.")
-        return normalized  # type: ignore[return-value]
-
-    @staticmethod
     def _normalize_price_component(value: OhlcPriceComponent | str) -> OhlcPriceComponent:
         normalized = str(value).strip().lower()
         if normalized not in {"mid", "bid_ask"}:
@@ -1701,7 +1454,7 @@ class BotMcpService:
     def _normalize_snapshot_timeframe(timeframe: str) -> str:
         resolved = normalize_command_timeframe(timeframe)
         if resolved not in _PUBLISHED_SNAPSHOT_TIMEFRAMES:
-            supported = ", ".join(EVALUATED_INDICATOR_ALERT_TIMEFRAMES)
+            supported = ", ".join(PUBLISHED_SNAPSHOT_TIMEFRAMES)
             raise ValueError(
                 f"Published snapshot timeframe must be one of {supported}; got {resolved}."
             )

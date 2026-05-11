@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
-from types import SimpleNamespace
 
-import pytest
-
-from bot import bot as bot_module
-from bot.security_manager import SecurityManager
 from config.settings import load_settings
 from data.persistence.trade_store import TradeStore
-from journal.excursion_repository import ExcursionRepository
 from journal.trade_history_service import TradeHistoryService
 from journal.trade_repository import TradeRepository
 
@@ -22,10 +16,6 @@ def write_env_file(path: Path, *, tinydb_path: Path) -> Path:
                 "OANDA_API_KEY=api-key",
                 "OANDA_ACCOUNT_ID=account-id",
                 "OANDA_ENVIRONMENT=practice",
-                "TELEGRAM_BOT_TOKEN=telegram-token",
-                "TELEGRAM_CHAT_ID=123456789",
-                "TELEGRAM_BOT_PASSWORD=bot-password",
-                "TELEGRAM_ADMIN_IDS=111,222",
                 f"TINYDB_PATH={tinydb_path.as_posix()}",
                 "JOURNAL_TIMEZONE=Asia/Singapore",
             )
@@ -33,14 +23,6 @@ def write_env_file(path: Path, *, tinydb_path: Path) -> Path:
         encoding="utf-8",
     )
     return path
-
-
-class RecorderMessage:
-    def __init__(self) -> None:
-        self.texts: list[str] = []
-
-    async def reply_text(self, text: str, **kwargs) -> None:  # type: ignore[no-untyped-def]
-        self.texts.append(text)
 
 
 class StubHistoryClient:
@@ -127,25 +109,12 @@ class StubHistoryClient:
         return [], str(last_transaction_id)
 
 
-@pytest.mark.asyncio
-async def test_trade_history_backfill_projects_journal_and_powers_tradehistory_command(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_trade_history_backfill_projects_journal_and_trade_history(tmp_path: Path) -> None:
     settings = load_settings(
         env_file=write_env_file(tmp_path / ".env", tinydb_path=tmp_path / "history.json")
     )
     store = TradeStore(db_path=settings.tinydb_path, settings=settings)
-    security = SecurityManager(store=store, settings=settings)
-    security.authenticate(
-        user_id=111,
-        chat_id=222,
-        password="bot-password",
-        username="tester",
-        first_name="Tester",
-    )
     trade_repository = TradeRepository(store=store, settings=settings)
-    excursion_repository = ExcursionRepository(store=store)
     service = TradeHistoryService(
         store=store,
         trade_repository=trade_repository,
@@ -153,57 +122,22 @@ async def test_trade_history_backfill_projects_journal_and_powers_tradehistory_c
         settings=settings,
     )
 
-    bot_data = {
-        bot_module.SECURITY_MANAGER_KEY: security,
-        bot_module.TRADE_REPOSITORY_KEY: trade_repository,
-        bot_module.EXCURSION_REPOSITORY_KEY: excursion_repository,
-        bot_module.TRADE_HISTORY_SERVICE_KEY: service,
-        bot_module.SETTINGS_KEY: settings,
-    }
-
-    async def fake_to_thread(func, /, *args, **kwargs):
-        return func(*args, **kwargs)
-
-    monkeypatch.setattr(bot_module.asyncio, "to_thread", fake_to_thread)
-    monkeypatch.setattr(bot_module, "_security_manager", lambda _context: security)
-
     try:
         result = service.backfill_history("2026-04-01", "2026-04-01")
-
-        journal_update = SimpleNamespace(
-            effective_message=RecorderMessage(),
-            effective_user=SimpleNamespace(id=111, username="tester", first_name="Tester"),
-            effective_chat=SimpleNamespace(id=222),
-        )
-        tradehistory_update = SimpleNamespace(
-            effective_message=RecorderMessage(),
-            effective_user=SimpleNamespace(id=111, username="tester", first_name="Tester"),
-            effective_chat=SimpleNamespace(id=222),
-        )
-
-        await bot_module.journal_command(
-            journal_update,
-            SimpleNamespace(bot_data=bot_data, args=[]),
-        )
-        await bot_module.tradehistory_command(
-            tradehistory_update,
-            SimpleNamespace(
-                bot_data=bot_data,
-                args=["custom:2026-04-01:2026-04-01", "all", "SPX500_USD"],
-            ),
+        history = service.get_trade_history(
+            "custom:2026-04-01:2026-04-01",
+            "all",
+            "SPX500_USD",
+            page=1,
         )
 
         assert result["inserted"] == 4
         assert [trade.trade_id for trade in trade_repository.list_closed()] == ["trade-1"]
-        assert "trade-1" in journal_update.effective_message.texts[-1]
-
-        output = tradehistory_update.effective_message.texts[-1]
-        assert output.splitlines()[1] == "P&L (2026-04-01): +6.00"
-        assert "OPEN" in output
-        assert "PARTIAL_CLOSE" in output
-        assert "CLOSE" in output
-        assert "DAILY_FINANCING" not in output
-        assert "MARKET_ORDER" not in output
-        assert "Net Realized PnL: +6.00" in output
+        assert history.summary.net_realized_pl == Decimal("6.00")
+        assert {row.event_type for row in history.rows} == {
+            "OPEN",
+            "PARTIAL_CLOSE",
+            "CLOSE",
+        }
     finally:
         store.close()

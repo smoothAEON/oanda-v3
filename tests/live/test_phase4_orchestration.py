@@ -1,9 +1,8 @@
-"""Phase 4 live cohesiveness tests: orchestration, scheduler cycles, cache warming,
-and full runtime lifecycle.
+"""Phase 4 live cohesiveness tests: orchestration, cache warming, and local lifecycle.
 
 These tests hit the real OANDA API and validate the full scan pipeline,
-cache warmer, calendar integration, stream/poller lifecycle, and concurrent
-scan safety.  All tests are auto-marked ``@pytest.mark.live`` by conftest.py.
+cache warmer, calendar integration, one-shot poller lifecycle, and concurrent
+scan safety. All tests are auto-marked ``@pytest.mark.live`` by conftest.py.
 
 Weekend-safe: the ``scan_orchestrator`` fixture injects ``always_open_market_hours``
 to bypass the market-closed gate.  CacheWarmer tests do the same.
@@ -13,7 +12,6 @@ Run with:  pytest tests/live/test_phase4_orchestration.py -m live -v
 
 from __future__ import annotations
 
-import asyncio
 import threading
 import time
 from unittest.mock import patch
@@ -22,7 +20,7 @@ import pytest
 
 from core.instrument_registry import SCAN_INSTRUMENTS
 from core.market_state import MarketStateStore
-from core.models import InstrumentBundle, ScanCycleStatus, TimeframeSnapshot
+from core.models import ScanCycleStatus, TimeframeSnapshot
 from data.forex_calendar import ForexCalendarClient
 from data.market_hours import MarketHoursService
 from data.persistence.trade_store import TradeStore
@@ -43,13 +41,13 @@ _FRESH_CACHE_PATCH = patch("providers.cache.is_cache_fresh", return_value=True)
 
 
 class TestScanOrchestratorFullCycle:
-    """Run scan_all() and verify status counters and published bundles."""
+    """Run scan_all() and verify status counters and published snapshots."""
 
     @pytest.mark.timeout(300)
     def test_scan_all_produces_complete_cycle(
         self, scan_orchestrator: ScanOrchestrator, market_state: MarketStateStore
     ) -> None:
-        """scan_all() should scan the full curated universe and publish all snapshots/bundles."""
+        """scan_all() should scan the full curated universe and publish all snapshots."""
 
         status: ScanCycleStatus = scan_orchestrator.scan_all()
         expected_instruments = len(SCAN_INSTRUMENTS)
@@ -62,9 +60,6 @@ class TestScanOrchestratorFullCycle:
         assert status.snapshots_published == expected_snapshots, (
             f"Expected {expected_snapshots} snapshots ({expected_instruments}x{len(SCAN_TIMEFRAMES)}), got {status.snapshots_published}"
         )
-        assert status.bundles_published == expected_instruments, (
-            f"Expected {expected_instruments} bundles, got {status.bundles_published}"
-        )
         assert len(status.errors) == 0, f"Unexpected errors: {status.errors}"
 
         # Temporal ordering
@@ -72,11 +67,11 @@ class TestScanOrchestratorFullCycle:
         assert status.completed_at is not None
         assert status.started_at < status.completed_at
 
-        # Every instrument should have a published bundle
         for instrument in SCAN_INSTRUMENTS:
-            bundle = market_state.get_bundle(instrument)
-            assert bundle is not None, f"Missing bundle for {instrument}"
-            assert isinstance(bundle, InstrumentBundle)
+            for timeframe in SCAN_TIMEFRAMES:
+                snapshot = market_state.get_snapshot(instrument, timeframe)
+                assert snapshot is not None, f"Missing snapshot for {instrument} {timeframe}"
+                assert isinstance(snapshot, TimeframeSnapshot)
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +216,7 @@ class TestCalendarIntegration:
 
 
 class TestFullRuntimeLifecycle:
-    """Wire up the complete runtime and validate end-to-end lifecycle."""
+    """Wire up the local runtime pieces and validate on-demand lifecycle."""
 
     @pytest.mark.asyncio
     @pytest.mark.timeout(300)
@@ -232,21 +227,15 @@ class TestFullRuntimeLifecycle:
         scan_orchestrator,
         market_state,
         account_client,
-        stream_client,
         trade_store,
         trade_repository,
-        excursion_repository,
-        alert_repository,
         journal_service,
         always_open_market_hours,
         tmp_db_path,
     ) -> None:
-        """Wire up cache, scan, poller, and stream; run for 60s; validate state."""
+        """Wire up cache, scan, and one-shot poller; validate state."""
 
-        from alerts.price_alert_engine import PriceAlertEngine
         from background.poller_task import TradePollerTask
-        from background.stream_task import PriceStreamTask
-        from tracking.excursion_tracker import ExcursionTracker
 
         # (a) Cache warm
         warmer = CacheWarmer(
@@ -261,61 +250,25 @@ class TestFullRuntimeLifecycle:
         #     cache without attempting a stale-append (fails on weekends)
         with _FRESH_CACHE_PATCH:
             scan_status = scan_orchestrator.scan_all()
-        assert scan_status.bundles_published == len(SCAN_INSTRUMENTS)
+        assert scan_status.snapshots_published == len(SCAN_INSTRUMENTS) * len(SCAN_TIMEFRAMES)
 
         # (c) Trade poller
         poller = TradePollerTask(account_client, trade_repository, journal_service)
         await poller.poll_once()
 
-        # (d) Stream task with low-threshold excursion settings
-        low_threshold_settings = live_settings.model_copy(
-            update={"mae_mfe_min_pip_move": 1e-10}
+        snapshots_found = sum(
+            1
+            for inst in SCAN_INSTRUMENTS
+            for timeframe in SCAN_TIMEFRAMES
+            if market_state.get_snapshot(inst, timeframe) is not None
         )
-        excursion_tracker = ExcursionTracker(
-            trade_repository,
-            excursion_repository,
-            settings=low_threshold_settings,
-        )
-        price_alert_engine = PriceAlertEngine(alert_repository)
-
-        stream_task = PriceStreamTask(
-            stream_client,
-            excursion_tracker,
-            price_alert_engine,
-            settings=live_settings,
-        )
-
-        # (e) Start stream task
-        await stream_task.start()
-
-        # Let it run for 60 seconds
-        await asyncio.sleep(60)
-
-        # Mid-run assertions
-        # Market state should have bundles for at least some instruments
-        bundles_found = sum(
-            1 for inst in SCAN_INSTRUMENTS if market_state.get_bundle(inst) is not None
-        )
-        assert bundles_found > 0, "Expected at least some bundles in market_state"
+        assert snapshots_found > 0, "Expected at least some snapshots in market_state"
 
         # Trade repository should have at least 1 trade from poller
         open_trades = trade_repository.list_open()
         # Note: on demo accounts there may be zero open trades, but the list_open() call
         # should still succeed. If there are any trades, they were polled correctly.
         assert isinstance(open_trades, list)
-
-        # Stream should be RUNNING
-        stream_health = stream_task.stream_status()
-        assert stream_health.state in ("RUNNING", "DEGRADED"), (
-            f"Expected RUNNING or DEGRADED, got {stream_health.state}"
-        )
-
-        # Stop stream task
-        await stream_task.stop()
-
-        # Post-shutdown assertions
-        post_health = stream_task.stream_status()
-        assert post_health.state == "STOPPED"
 
         # All data still readable from TinyDB (open a fresh store against same file)
         fresh_store = TradeStore(db_path=tmp_db_path)
@@ -334,21 +287,22 @@ class TestFullRuntimeLifecycle:
 
 
 class TestSecondScanCycleAfterRuntime:
-    """After a full lifecycle, a second scan should produce incremented versions."""
+    """After one local cycle, a second scan should produce incremented versions."""
 
     @pytest.mark.timeout(300)
     def test_second_scan_increments_versions(
         self, scan_orchestrator: ScanOrchestrator, market_state: MarketStateStore
     ) -> None:
-        """scan_all() twice should produce v2 snapshots and bundles referencing the latest."""
+        """scan_all() twice should produce v2 snapshots for each timeframe."""
 
         # First scan
         scan_orchestrator.scan_all()
 
-        # Capture v1 references
-        v1_bundle = market_state.get_bundle("SPX500_USD")
-        assert v1_bundle is not None
-        v1_members = dict(v1_bundle.members)
+        v1_versions = {}
+        for timeframe in SCAN_TIMEFRAMES:
+            snapshot = market_state.get_snapshot("SPX500_USD", timeframe)
+            assert snapshot is not None
+            v1_versions[timeframe] = snapshot.version
 
         # Second scan — patch freshness to avoid stale-append on weekends
         with _FRESH_CACHE_PATCH:
@@ -361,20 +315,10 @@ class TestSecondScanCycleAfterRuntime:
                 f"Missing v2 snapshot for SPX500_USD {timeframe}"
             )
 
-        # Bundle should reference latest (v2) versions
-        v2_bundle = market_state.get_bundle("SPX500_USD")
-        assert v2_bundle is not None
-        assert v2_bundle.bundle_version >= 2, (
-            f"Expected bundle_version >= 2, got {v2_bundle.bundle_version}"
-        )
-
-        # Bundle member versions should be >= v1 member versions
-        for timeframe, v1_version in v1_members.items():
-            if timeframe in v2_bundle.members:
-                assert v2_bundle.members[timeframe] >= v1_version, (
-                    f"{timeframe}: v2 bundle member {v2_bundle.members[timeframe]} "
-                    f"< v1 member {v1_version}"
-                )
+        for timeframe, v1_version in v1_versions.items():
+            latest = market_state.get_snapshot("SPX500_USD", timeframe)
+            assert latest is not None
+            assert latest.version > v1_version
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +335,7 @@ class TestConcurrentScanSafety:
     ) -> None:
         """Three threads refreshing SPX500_USD simultaneously should not crash."""
 
-        results: list[InstrumentBundle | None] = [None, None, None]
+        results: list[dict[str, TimeframeSnapshot] | None] = [None, None, None]
         exceptions: list[Exception | None] = [None, None, None]
 
         def _refresh(index: int) -> None:

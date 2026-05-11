@@ -1,3 +1,0 @@
-[deploy]
-startCommand = "python bootstrap.py"
-healthcheckPath = "/healthz"

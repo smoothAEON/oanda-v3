@@ -13,14 +13,13 @@ from uuid import uuid4
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
-from alerts.alert_repository import AlertRepository
 from config.settings import Settings, get_settings
 from core.candle_policy import get_timeframe_delta, validate_candle_df
 from core.instrument_registry import get_instrument_spec, normalize_instrument
 from core.market_state import MarketStateStore
 from core.enums import ChartMode, ChartRenderStyle
 from core.logging_setup import get_logger, log_failure
-from core.models import PendingOrder, PriceAlert, TimeframeSnapshot, TradeRecord
+from core.models import PendingOrder, TimeframeSnapshot, TradeRecord
 from journal.trade_repository import TradeRepository
 from orchestration.scan_orchestrator import ScanOrchestrator
 from providers.account_client import OandaAccountClient
@@ -30,7 +29,6 @@ from providers.oanda import OandaMarketDataProvider
 SUPPORTED_TIMEFRAMES: tuple[str, ...] = ("M1", "M5", "M15", "M30", "H1", "H4", "D")
 SMC_SELECTOR_KEYS: tuple[str, ...] = ("orderblocks", "structure", "liquidity")
 TRADE_SELECTOR_KEYS: tuple[str, ...] = ("positions", "orders", "sl", "tp", "gslo")
-ALERT_SELECTOR_KEYS: tuple[str, ...] = ("pricealerts",)
 INDICATOR_SELECTOR_KEYS: tuple[str, ...] = ("ema", "bollinger", "vwap", "rsi", "macd")
 DEFAULT_OVERLAY_KEYS: tuple[str, ...] = (
     "orderblocks",
@@ -39,7 +37,6 @@ DEFAULT_OVERLAY_KEYS: tuple[str, ...] = (
     "sl",
     "tp",
     "gslo",
-    "pricealerts",
 )
 OVERLAY_PRESETS: dict[str, tuple[str, ...]] = {
     "clean": (),
@@ -61,7 +58,6 @@ class ResolvedChartSelection:
     keys: tuple[str, ...]
     smc: tuple[str, ...] = ()
     trade: tuple[str, ...] = ()
-    alert: tuple[str, ...] = ()
     indicator: tuple[str, ...] = ()
 
 
@@ -77,7 +73,6 @@ class ChartRequest(ChartingModel):
     overlays: tuple[str, ...] = ()
     smc: tuple[str, ...] = ()
     trade: tuple[str, ...] = ()
-    alert: tuple[str, ...] = ()
     indicator: tuple[str, ...] = ()
     overlay_selection: ResolvedChartSelection | None = None
 
@@ -92,14 +87,14 @@ class ChartRequest(ChartingModel):
             payload = normalized.pop(key, None)
             if not isinstance(payload, dict):
                 continue
-            for family in ("smc", "trade", "alert", "indicator"):
+            for family in ("smc", "trade", "indicator"):
                 if family in payload and family not in normalized:
                     normalized[family] = payload[family]
 
         overlays = normalized.get("overlays")
         if isinstance(overlays, dict):
             normalized.pop("overlays", None)
-            for family in ("smc", "trade", "alert", "indicator"):
+            for family in ("smc", "trade", "indicator"):
                 if family in overlays and family not in normalized:
                     normalized[family] = overlays[family]
 
@@ -152,7 +147,7 @@ class ChartRequest(ChartingModel):
             return value
         return value.strip().lower()
 
-    @field_validator("overlays", "smc", "trade", "alert", "indicator", mode="before")
+    @field_validator("overlays", "smc", "trade", "indicator", mode="before")
     @classmethod
     def coerce_selector_family(
         cls,
@@ -164,13 +159,12 @@ class ChartRequest(ChartingModel):
     @model_validator(mode="after")
     def resolve_overlay_selection(self) -> "ChartRequest":
         explicit_selectors_present = any(
-            family for family in (self.smc, self.trade, self.alert, self.indicator)
+            family for family in (self.smc, self.trade, self.indicator)
         )
         selection = _resolve_overlay_selection(
             presets=() if explicit_selectors_present else self.overlays,
             smc=self.smc,
             trade=self.trade,
-            alert=self.alert,
             indicator=self.indicator,
             mode=self.mode,
             use_default_bundle=not explicit_selectors_present and not self.overlays,
@@ -212,23 +206,20 @@ def _resolve_overlay_selection(
     presets: tuple[str, ...],
     smc: tuple[str, ...],
     trade: tuple[str, ...],
-    alert: tuple[str, ...],
     indicator: tuple[str, ...],
     mode: ChartMode,
     use_default_bundle: bool,
 ) -> ResolvedChartSelection:
     resolved_smc = _validate_selector_subset("smc", smc, SMC_SELECTOR_KEYS)
     resolved_trade = _validate_selector_subset("trade", trade, TRADE_SELECTOR_KEYS)
-    resolved_alert = _validate_selector_subset("alert", alert, ALERT_SELECTOR_KEYS)
     resolved_indicator = _validate_selector_subset("indicator", indicator, INDICATOR_SELECTOR_KEYS)
 
-    if any((resolved_smc, resolved_trade, resolved_alert, resolved_indicator)):
-        keys = _merge_unique(resolved_smc, resolved_trade, resolved_alert, resolved_indicator)
+    if any((resolved_smc, resolved_trade, resolved_indicator)):
+        keys = _merge_unique(resolved_smc, resolved_trade, resolved_indicator)
         return ResolvedChartSelection(
             keys=keys,
             smc=resolved_smc,
             trade=resolved_trade,
-            alert=resolved_alert,
             indicator=resolved_indicator,
         )
 
@@ -249,7 +240,6 @@ def _resolve_overlay_selection(
         keys=merged,
         smc=tuple(key for key in SMC_SELECTOR_KEYS if key in merged),
         trade=tuple(key for key in TRADE_SELECTOR_KEYS if key in merged),
-        alert=tuple(key for key in ALERT_SELECTOR_KEYS if key in merged),
         indicator=tuple(key for key in INDICATOR_SELECTOR_KEYS if key in merged),
     )
 
@@ -260,23 +250,20 @@ def _default_selection_for_mode(mode: ChartMode) -> ResolvedChartSelection:
             keys=("orderblocks", "positions"),
             smc=("orderblocks",),
             trade=("positions",),
-            alert=(),
             indicator=(),
         )
     if mode == ChartMode.FULL:
-        merged = _merge_unique(SMC_SELECTOR_KEYS, TRADE_SELECTOR_KEYS, ALERT_SELECTOR_KEYS, INDICATOR_SELECTOR_KEYS)
+        merged = _merge_unique(SMC_SELECTOR_KEYS, TRADE_SELECTOR_KEYS, INDICATOR_SELECTOR_KEYS)
         return ResolvedChartSelection(
             keys=merged,
             smc=SMC_SELECTOR_KEYS,
             trade=TRADE_SELECTOR_KEYS,
-            alert=ALERT_SELECTOR_KEYS,
             indicator=INDICATOR_SELECTOR_KEYS,
         )
     return ResolvedChartSelection(
         keys=DEFAULT_OVERLAY_KEYS,
         smc=("orderblocks",),
         trade=("positions", "orders", "sl", "tp", "gslo"),
-        alert=("pricealerts",),
         indicator=(),
     )
 
@@ -370,17 +357,6 @@ class PendingOrderOverlay:
 
 
 @dataclass(frozen=True)
-class PriceAlertOverlay:
-    """Serializable price-alert overlay payload."""
-
-    instrument: str
-    alert_id: int
-    direction: str
-    target_price: float
-    created_at: pd.Timestamp
-
-
-@dataclass(frozen=True)
 class ChartRenderPayload:
     """Pure render payload sent to the process worker."""
 
@@ -397,7 +373,6 @@ class ChartRenderPayload:
     liquidity_annotations: tuple[LiquidityAnnotation, ...]
     trade_overlays: tuple[TradeOverlay, ...]
     order_overlays: tuple[PendingOrderOverlay, ...]
-    price_alert_overlays: tuple[PriceAlertOverlay, ...]
     omitted_layers: tuple[str, ...]
     artifact_path: str
     warning_text: str | None = None
@@ -519,7 +494,6 @@ class ChartRenderer:
         market_data_provider: MarketDataProvider | None = None,
         scan_orchestrator: ScanOrchestrator | None = None,
         trade_repository: TradeRepository | None = None,
-        alert_repository: AlertRepository | None = None,
         account_client: OandaAccountClient | None = None,
     ) -> None:
         self.settings = settings or get_settings()
@@ -533,7 +507,6 @@ class ChartRenderer:
             market_state=self.market_state,
         )
         self.trade_repository = trade_repository or TradeRepository(settings=self.settings)
-        self.alert_repository = alert_repository or AlertRepository(settings=self.settings)
         self.account_client = account_client
         self.logger = get_logger(__name__)
 
@@ -556,10 +529,6 @@ class ChartRenderer:
         liquidity_levels = self._build_liquidity_annotations(snapshot)
         trades = self._build_trade_overlays(resolved_request.instrument)
         orders = self._build_pending_order_overlays(resolved_request.instrument)
-        alerts = self._build_price_alert_overlays(
-            resolved_request.instrument,
-            chat_id=resolved_request.chat_id,
-        )
 
         return ChartRenderPayload(
             instrument=resolved_request.instrument,
@@ -576,7 +545,6 @@ class ChartRenderer:
             liquidity_annotations=liquidity_levels,
             trade_overlays=trades,
             order_overlays=orders,
-            price_alert_overlays=alerts,
             omitted_layers=self._build_omitted_layers(
                 selection=resolved_request.selection,
                 visible_price_low=visible_price_low,
@@ -586,7 +554,6 @@ class ChartRenderer:
                 liquidity_levels=liquidity_levels,
                 trades=trades,
                 orders=orders,
-                alerts=alerts,
             ),
             artifact_path=str(
                 self._allocate_artifact_path(
@@ -835,32 +802,6 @@ class ChartRenderer:
             if order.instrument == instrument
         )
 
-    def _build_price_alert_overlays(
-        self,
-        instrument: str,
-        *,
-        chat_id: int | None = None,
-    ) -> tuple[PriceAlertOverlay, ...]:
-        if self.alert_repository is None:
-            return ()
-        if chat_id is not None and hasattr(self.alert_repository, "list_pending_price_alerts_for_chat"):
-            alerts = _coerce_price_alerts(
-                self.alert_repository.list_pending_price_alerts_for_chat(chat_id)
-            )
-        else:
-            alerts = _coerce_price_alerts(self.alert_repository.list_pending_price_alerts())
-        return tuple(
-            PriceAlertOverlay(
-                instrument=alert.instrument,
-                alert_id=alert.id,
-                direction=alert.direction,
-                target_price=float(alert.target_price),
-                created_at=_normalize_timestamp(alert.created_at),
-            )
-            for alert in alerts
-            if alert.instrument == instrument
-        )
-
     def _build_omitted_layers(
         self,
         *,
@@ -872,7 +813,6 @@ class ChartRenderer:
         liquidity_levels: tuple[LiquidityAnnotation, ...],
         trades: tuple[TradeOverlay, ...],
         orders: tuple[PendingOrderOverlay, ...],
-        alerts: tuple[PriceAlertOverlay, ...],
     ) -> tuple[str, ...]:
         omitted: list[str] = []
 
@@ -932,14 +872,6 @@ class ChartRenderer:
                 if not _price_is_visible(price, visible_low=visible_price_low, visible_high=visible_price_high):
                     omitted.append(f"{label}:{order.instrument}:{order.order_id}:{price}")
 
-        for alert in alerts:
-            if not _price_is_visible(
-                alert.target_price,
-                visible_low=visible_price_low,
-                visible_high=visible_price_high,
-            ):
-                omitted.append(f"pricealert:{alert.instrument}:{alert.alert_id}:{alert.target_price}")
-
         return tuple(omitted)
 
 
@@ -971,14 +903,6 @@ def _coerce_pending_orders(value: object) -> list[PendingOrder]:
     if not isinstance(value, list):
         raise TypeError("Pending-order reads must return a list.")
     return [item if isinstance(item, PendingOrder) else PendingOrder.model_validate(item) for item in value]
-
-
-def _coerce_price_alerts(value: object) -> list[PriceAlert]:
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise TypeError("Price-alert reads must return a list.")
-    return [item if isinstance(item, PriceAlert) else PriceAlert.model_validate(item) for item in value]
 
 
 def _coerce_trade_records(value: object) -> list[TradeRecord]:
@@ -1231,11 +1155,6 @@ def _draw_line_overlays(main_ax, payload: ChartRenderPayload) -> None:
                 _draw_visible_line(main_ax, order.take_profit_price, payload, color="#15803d", linestyle="--")
             if "gslo" in payload.overlay_selection.trade and order.gslo_price is not None:
                 _draw_visible_line(main_ax, order.gslo_price, payload, color="#7c3aed", linestyle="-.")
-
-    if "pricealerts" in payload.overlay_selection.alert:
-        for alert in payload.price_alert_overlays:
-            _draw_visible_line(main_ax, alert.target_price, payload, color="#ca8a04", linestyle=":")
-
 
 def _draw_visible_line(main_ax, price: float, payload: ChartRenderPayload, *, color: str, linestyle: str) -> None:
     if not _price_is_visible(
